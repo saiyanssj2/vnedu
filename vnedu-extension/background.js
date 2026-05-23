@@ -1,4 +1,4 @@
-const GEMINI_KEY = 'AIzaSy_REPLACE_YOUR_KEY_HERE';
+const GEMINI_KEY = 'AIzaSyDd-oj5kpenLfvGHQ6nm4nqUfWpesNh6zc';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
 
 chrome.runtime.onInstalled.addListener(() => {

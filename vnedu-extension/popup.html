@@ -187,7 +187,8 @@
 </header>
 
 <div class="tabs">
-  <button class="tab active" data-tab="batch">📋 Nhận xét hàng loạt</button>
+  <button class="tab active" data-tab="batch">📋 Nhận xét</button>
+  <button class="tab" data-tab="thongke">📊 Sổ CN</button>
   <button class="tab" data-tab="settings">⚙️ Cài đặt</button>
 </div>
 
@@ -215,6 +216,26 @@
     <div class="empty-state">
       Mở trang Sổ nhận xét trên vnEdu<br>rồi bấm "Đọc từ trang"
     </div>
+  </div>
+
+</div>
+
+<!-- TAB: THONG KE SO CHU NHIEM -->
+<div class="panel" id="tab-thongke">
+
+  <div class="action-bar">
+    <button class="btn btn-secondary" id="btn-read-tongket">🔍 Đọc Điểm TK</button>
+    <button class="btn btn-success" id="btn-fill-chunhiem" disabled>⬇️ Điền Sổ CN</button>
+  </div>
+
+  <div class="subject-info" id="tongket-info">Mở trang "Điểm tổng kết" rồi bấm Đọc</div>
+
+  <div id="thongke-preview" style="display:none; background:white; border:1px solid #dde3ed; border-radius:6px; padding:10px; font-size:12px; max-height:360px; overflow-y:auto">
+    <div id="thongke-content"></div>
+  </div>
+
+  <div style="margin-top:10px; padding:8px; background:#e8f5e9; border-radius:6px; font-size:11px; color:#2e7d32; line-height:1.6; display:none" id="thongke-guide">
+    ✅ Đã tính xong. Mở trang <b>"Quản lý sổ chủ nhiệm"</b> rồi bấm <b>Điền Sổ CN</b>.
   </div>
 
 </div>

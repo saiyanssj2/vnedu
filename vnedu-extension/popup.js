@@ -228,3 +228,90 @@ document.getElementById('btn-fill-all').addEventListener('click', async () => {
     showToast('❌ Lỗi: ' + e.message);
   }
 });
+
+// ── Tab Sổ Chủ Nhiệm ─────────────────────────────────
+let cachedThongKe = null;
+
+document.getElementById('btn-read-tongket').addEventListener('click', async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.url?.includes('vnedu.vn')) return showToast('⚠️ Hãy mở trang vnedu.vn');
+
+  try {
+    const res = await chrome.tabs.sendMessage(tab.id, { type: 'READ_DIEM_TONG_KET' });
+    if (!res?.total) return showToast('⚠️ Không tìm thấy dữ liệu. Hãy mở trang "Điểm tổng kết"');
+
+    cachedThongKe = res.thongKe;
+    renderThongKe(res.thongKe, res.total);
+    document.getElementById('btn-fill-chunhiem').disabled = false;
+    document.getElementById('thongke-guide').style.display = 'block';
+    showToast(`✅ Đọc được ${res.total} học sinh`);
+  } catch (e) {
+    showToast('❌ ' + e.message);
+  }
+});
+
+function renderThongKe(tk, total) {
+  const preview = document.getElementById('thongke-preview');
+  const content = document.getElementById('thongke-content');
+  document.getElementById('tongket-info').textContent = `Tổng số: ${total} học sinh`;
+  preview.style.display = 'block';
+
+  const nlLabels = {
+    nl_tcth: 'Tự chủ & tự học', nl_gtht: 'Giao tiếp & hợp tác', nl_gqvdst: 'GQVĐ & sáng tạo',
+    nl_nn: 'Ngôn ngữ', nl_tt: 'Tính toán', nl_kh: 'Khoa học', nl_tm: 'Thẩm mĩ', nl_tc: 'Thể chất',
+    pc_yn: 'Yêu nước', pc_nhanai: 'Nhân ái', pc_chamchi: 'Chăm chỉ',
+    pc_trungthuc: 'Trung thực', pc_trachnhiem: 'Trách nhiệm'
+  };
+  const monLabels = {
+    '50': 'Tiếng Việt', '51': 'Toán', '56': 'Đạo đức', '57': 'TN-XH',
+    '58': 'Âm nhạc', '59': 'Mĩ thuật', '97': 'GDTC', '98': 'HĐTN'
+  };
+
+  const tdStyle = 'padding:2px 4px;font-size:11px';
+  const thStyle = 'padding:2px 4px;background:#e8f0fe;text-align:center';
+
+  let html = '<b>Năng lực / Phẩm chất:</b>';
+  html += `<table style="width:100%;border-collapse:collapse;margin-top:4px">
+    <tr><td style="${thStyle};text-align:left"><b>Tiêu chí</b></td>
+    <td style="${thStyle}"><b>Tốt</b></td><td style="${thStyle}"><b>Đạt</b></td><td style="${thStyle}"><b>Cần CG</b></td></tr>`;
+  Object.entries(tk.nlpc).forEach(([key, s]) => {
+    html += `<tr style="border-bottom:1px solid #f0f4f8">
+      <td style="${tdStyle}">${nlLabels[key] || key}</td>
+      <td style="${tdStyle};text-align:center;color:#2e7d32">${s.tot} (${s.totPct}%)</td>
+      <td style="${tdStyle};text-align:center;color:#1565c0">${s.dat} (${s.datPct}%)</td>
+      <td style="${tdStyle};text-align:center;color:#e65100">${s.can} (${s.canPct}%)</td></tr>`;
+  });
+  html += '</table>';
+
+  html += '<br><b>Môn học:</b>';
+  html += `<table style="width:100%;border-collapse:collapse;margin-top:4px">
+    <tr><td style="${thStyle};text-align:left"><b>Môn</b></td>
+    <td style="${thStyle}"><b>HTT</b></td><td style="${thStyle}"><b>HT</b></td><td style="${thStyle}"><b>CHT</b></td></tr>`;
+  Object.entries(tk.monThongKe).forEach(([id, s]) => {
+    html += `<tr style="border-bottom:1px solid #f0f4f8">
+      <td style="${tdStyle}">${monLabels[id] || id}</td>
+      <td style="${tdStyle};text-align:center;color:#2e7d32">${s.htt}</td>
+      <td style="${tdStyle};text-align:center;color:#1565c0">${s.ht}</td>
+      <td style="${tdStyle};text-align:center;color:#e65100">${s.cht}</td></tr>`;
+  });
+  html += '</table>';
+
+  content.innerHTML = html;
+}
+
+document.getElementById('btn-fill-chunhiem').addEventListener('click', async () => {
+  if (!cachedThongKe) return showToast('⚠️ Chưa đọc dữ liệu');
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.url?.includes('vnedu.vn')) return showToast('⚠️ Hãy mở trang vnedu.vn');
+
+  try {
+    const pageRes = await chrome.tabs.sendMessage(tab.id, { type: 'DETECT_PAGE' });
+    if (pageRes?.page !== 'so_chu_nhiem') {
+      return showToast('⚠️ Hãy mở trang "Quản lý sổ chủ nhiệm" trước');
+    }
+    const res = await chrome.tabs.sendMessage(tab.id, { type: 'FILL_SO_CHU_NHIEM', thongKe: cachedThongKe });
+    showToast(`✅ Đã điền ${res.filled} ô vào Sổ CN`);
+  } catch (e) {
+    showToast('❌ ' + e.message);
+  }
+});

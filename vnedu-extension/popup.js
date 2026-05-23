@@ -104,88 +104,37 @@ async function callGemini(prompt) {
   });
 }
 
-// ── Build prompt cho 1 học sinh ──────────────────────
-function buildPrompt(student, monHoc) {
-  const score = student.ktScore;
-  const xl = student.xlValue;
-
-  // Xác định mức độ từ điểm + xếp loại
-  let mucDo, goiY;
-  if (score >= 9 && xl === 'T') {
-    mucDo = 'Hoàn thành xuất sắc';
-    goiY = 'nắm vững kiến thức, vận dụng tốt, thành thích nổi bật';
-  } else if (score >= 7 && xl === 'T') {
-    mucDo = 'Hoàn thành tốt';
-    goiY = 'hiểu bài, làm bài đúng yêu cầu, có tiến bộ';
-  } else if (score >= 5) {
-    mucDo = 'Hoàn thành';
-    goiY = 'cơ bản đạt yêu cầu, cần cố gắng thêm';
-  } else {
-    mucDo = 'Chưa hoàn thành';
-    goiY = 'cần được hỗ trợ thêm, chưa đạt yêu cầu cơ bản';
-  }
-
-  return `Bạn là giáo viên tiểu học. Viết nhận xét học bạ cho học sinh:
-
-Tên: ${student.hoTen}
-Môn: ${monHoc}
-Điểm cuối kỳ: ${score}
-Xếp loại: ${mucDo}
-Gợi ý nội dung: ${goiY}
-
-Yêu cầu:
-- 1-2 câu ngắn gọn, phù hợp học bạ tiểu học
-- Không dùng gạch đầu dòng, không xuống dòng
-- Không nhắc đến điểm số cụ thể
-- Chỉ trả về đoạn nhận xét, không giải thích`;
-}
-
-// ── Generate tất cả (batch với rate limit) ────────────
+// ── Generate tất cả ────────────────────────────────────────
 document.getElementById('btn-generate-all').addEventListener('click', async () => {
   if (students.length === 0) return showToast('⚠️ Chưa đọc dữ liệu từ trang');
 
   const onlyEmpty = document.getElementById('chk-only-empty').checked;
   const targets = onlyEmpty ? students.filter(s => !s.hasComment) : students;
-
   if (targets.length === 0) return showToast('ℹ️ Tất cả đã có nhận xét');
 
   const btn = document.getElementById('btn-generate-all');
-  btn.disabled = true;
-
   const progress = document.getElementById('progress');
+  btn.disabled = true;
   progress.style.display = 'block';
+  progress.textContent = `⏳ Đang sinh ${targets.length} nhận xét... (chạy nền, đừng đóng popup)`;
 
   const monHoc = subjectInfo.monHoc || 'môn học';
-  const RATE_LIMIT = 14;
-  let done = 0;
-  let errors = 0;
 
-  for (let i = 0; i < targets.length; i++) {
-    const s = targets[i];
-    progress.textContent = `⏳ Đang sinh ${i + 1}/${targets.length}: ${s.hoTen}...`;
-
-    try {
-      const text = await callGemini(buildPrompt(s, monHoc));
-      generated[s.hocSinhId] = text;
-      done++;
-    } catch (e) {
-      errors++;
-      console.error(`Lỗi ${s.hoTen}:`, e.message);
+  chrome.runtime.sendMessage(
+    { type: 'GEMINI_GENERATE_BATCH', targets, monHoc, rateLimit: 14 },
+    res => {
+      if (chrome.runtime.lastError || !res?.success) {
+        progress.textContent = `❌ Lỗi: ${chrome.runtime.lastError?.message || res?.error}`;
+        btn.disabled = false;
+        return;
+      }
+      Object.assign(generated, res.generated);
+      progress.textContent = `✅ Hoàn thành: ${res.done} nhận xét${res.errors > 0 ? `, ${res.errors} lỗi` : ''}`;
+      renderStudentList();
+      document.getElementById('btn-fill-all').disabled = false;
+      btn.disabled = false;
     }
-
-    // Rate limit: sau mỗi RATE_LIMIT request, chờ 65 giây
-    if ((i + 1) % RATE_LIMIT === 0 && i + 1 < targets.length) {
-      progress.textContent = `⏸️ Chờ 65 giây để tránh rate limit... (${i + 1}/${targets.length})`;
-      await sleep(65000);
-    } else if (i + 1 < targets.length) {
-      await sleep(200); // delay nhỏ giữa các request
-    }
-  }
-
-  progress.textContent = `✅ Hoàn thành: ${done} nhận xét${errors > 0 ? `, ${errors} lỗi` : ''}`;
-  renderStudentList();
-  document.getElementById('btn-fill-all').disabled = false;
-  btn.disabled = false;
+  );
 });
 
 function sleep(ms) {

@@ -9,14 +9,19 @@ document.querySelectorAll('.tab').forEach(tab => {
 });
 
 // ── Toast ─────────────────────────────────────────────
-function showToast(msg, duration = 2000) {
+function showToast(msg, duration = 2500) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), duration);
 }
 
-// ── Load saved settings ───────────────────────────────
+// ── State ─────────────────────────────────────────────
+let students = [];       // danh sách đọc từ trang
+let subjectInfo = {};    // môn học, lớp
+let generated = {};      // { hocSinhId: text }
+
+// ── Load settings ─────────────────────────────────────
 chrome.storage.local.get(['geminiKey', 'customSelector'], data => {
   if (data.geminiKey) {
     document.getElementById('api-key').value = data.geminiKey;
@@ -29,10 +34,9 @@ chrome.storage.local.get(['geminiKey', 'customSelector'], data => {
 
 function setApiStatus(ok) {
   document.getElementById('api-dot').className = `dot ${ok ? 'ok' : 'err'}`;
-  document.getElementById('api-status-text').textContent = ok ? 'API Key đã lưu ✓' : 'API Key không hợp lệ';
+  document.getElementById('api-status-text').textContent = ok ? 'API Key đã lưu ✓' : 'Chưa có API Key';
 }
 
-// ── Save API Key ──────────────────────────────────────
 document.getElementById('btn-save-key').addEventListener('click', () => {
   const key = document.getElementById('api-key').value.trim();
   if (!key) return showToast('⚠️ Nhập API Key trước');
@@ -42,36 +46,61 @@ document.getElementById('btn-save-key').addEventListener('click', () => {
   });
 });
 
-// ── Save Selector ─────────────────────────────────────
 document.getElementById('btn-save-selector').addEventListener('click', () => {
   const sel = document.getElementById('custom-selector').value.trim();
-  chrome.storage.local.set({ customSelector: sel }, () => {
-    showToast('✅ Đã lưu selector');
-  });
+  chrome.storage.local.set({ customSelector: sel }, () => showToast('✅ Đã lưu'));
 });
 
-// ── Build Prompt ──────────────────────────────────────
-function buildPrompt(data) {
-  return `Bạn là giáo viên chủ nhiệm cấp ${data.level}. Hãy viết nhận xét học bạ cho học sinh với thông tin sau:
+// ── Đọc dữ liệu từ trang ─────────────────────────────
+document.getElementById('btn-read').addEventListener('click', async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.url?.includes('vnedu.vn')) {
+    return showToast('⚠️ Hãy mở trang vnedu.vn trước');
+  }
 
-Tên: ${data.name}
-Giới tính: ${data.gender}
-Môn học: ${data.subject}
-Học lực: ${data.academic}
-Hạnh kiểm: ${data.conduct}
-Điểm mạnh: ${data.strengths || 'không có thông tin'}
-Điểm yếu: ${data.weaknesses || 'không có thông tin'}
+  try {
+    const res = await chrome.tabs.sendMessage(tab.id, { type: 'READ_STUDENTS' });
+    students = res.students || [];
+    subjectInfo = res.subjectInfo || {};
 
-Yêu cầu:
-- Giọng văn: ${data.tone}
-- Độ dài: ${data.length}
-- Viết liền mạch, không xuống dòng, không dùng gạch đầu dòng
-- Phù hợp để ghi vào học bạ chính thức
-- Xưng hô đúng giới tính (em/bạn)
-- Chỉ trả về đoạn nhận xét, không giải thích thêm`;
+    if (students.length === 0) {
+      return showToast('⚠️ Không tìm thấy danh sách học sinh');
+    }
+
+    renderStudentList();
+    showToast(`✅ Đọc được ${students.length} học sinh`);
+    document.getElementById('btn-generate-all').disabled = false;
+  } catch (e) {
+    showToast('❌ Lỗi: ' + e.message);
+  }
+});
+
+// ── Render danh sách học sinh ─────────────────────────
+function renderStudentList() {
+  const list = document.getElementById('student-list');
+  const info = document.getElementById('subject-info');
+
+  info.textContent = `${subjectInfo.monHoc || ''} — Lớp ${subjectInfo.lop || ''}`;
+
+  list.innerHTML = students.map(s => {
+    const xlLabel = s.xlValue === 'T' ? '✓ Tốt' : s.xlValue === 'H' ? '△ Hoàn thành' : s.xlValue || '?';
+    const scoreColor = s.ktScore >= 9 ? '#2e7d32' : s.ktScore >= 7 ? '#1565c0' : s.ktScore >= 5 ? '#e65100' : '#c62828';
+    const hasGen = generated[s.hocSinhId];
+    return `
+      <div class="student-row ${hasGen ? 'done' : ''}" data-id="${s.hocSinhId}">
+        <div class="student-name">${s.hoTen}</div>
+        <div class="student-meta">
+          <span style="color:${scoreColor}; font-weight:600">${s.ktScore ?? '?'}</span>
+          <span class="xl-badge">${xlLabel}</span>
+          ${s.hasComment ? '<span class="badge-existing">Đã có NX</span>' : ''}
+          ${hasGen ? '<span class="badge-done">✓ Đã sinh</span>' : ''}
+        </div>
+        ${hasGen ? `<div class="preview-text">${generated[s.hocSinhId]}</div>` : ''}
+      </div>`;
+  }).join('');
 }
 
-// ── Call Gemini API ───────────────────────────────────
+// ── Gemini API ────────────────────────────────────────
 async function callGemini(apiKey, prompt) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
@@ -79,7 +108,7 @@ async function callGemini(apiKey, prompt) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 512 }
+      generationConfig: { temperature: 0.7, maxOutputTokens: 256 }
     })
   });
   if (!res.ok) {
@@ -90,145 +119,112 @@ async function callGemini(apiKey, prompt) {
   return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
 }
 
-// ── Generate ──────────────────────────────────────────
-document.getElementById('btn-generate').addEventListener('click', async () => {
+// ── Build prompt cho 1 học sinh ──────────────────────
+function buildPrompt(student, monHoc) {
+  const score = student.ktScore;
+  const xl = student.xlValue;
+
+  // Xác định mức độ từ điểm + xếp loại
+  let mucDo, goiY;
+  if (score >= 9 && xl === 'T') {
+    mucDo = 'Hoàn thành xuất sắc';
+    goiY = 'nắm vững kiến thức, vận dụng tốt, thành thích nổi bật';
+  } else if (score >= 7 && xl === 'T') {
+    mucDo = 'Hoàn thành tốt';
+    goiY = 'hiểu bài, làm bài đúng yêu cầu, có tiến bộ';
+  } else if (score >= 5) {
+    mucDo = 'Hoàn thành';
+    goiY = 'cơ bản đạt yêu cầu, cần cố gắng thêm';
+  } else {
+    mucDo = 'Chưa hoàn thành';
+    goiY = 'cần được hỗ trợ thêm, chưa đạt yêu cầu cơ bản';
+  }
+
+  return `Bạn là giáo viên tiểu học. Viết nhận xét học bạ cho học sinh:
+
+Tên: ${student.hoTen}
+Môn: ${monHoc}
+Điểm cuối kỳ: ${score}
+Xếp loại: ${mucDo}
+Gợi ý nội dung: ${goiY}
+
+Yêu cầu:
+- 1-2 câu ngắn gọn, phù hợp học bạ tiểu học
+- Không dùng gạch đầu dòng, không xuống dòng
+- Không nhắc đến điểm số cụ thể
+- Chỉ trả về đoạn nhận xét, không giải thích`;
+}
+
+// ── Generate tất cả (batch với rate limit) ────────────
+document.getElementById('btn-generate-all').addEventListener('click', async () => {
   const { geminiKey } = await chrome.storage.local.get('geminiKey');
-  if (!geminiKey) {
-    showToast('⚠️ Chưa cài API Key — vào tab Cài đặt');
-    return;
-  }
+  if (!geminiKey) return showToast('⚠️ Chưa có API Key — vào tab Cài đặt');
+  if (students.length === 0) return showToast('⚠️ Chưa đọc dữ liệu từ trang');
 
-  const name = document.getElementById('name').value.trim();
-  if (!name) return showToast('⚠️ Nhập tên học sinh');
+  const onlyEmpty = document.getElementById('chk-only-empty').checked;
+  const targets = onlyEmpty ? students.filter(s => !s.hasComment) : students;
 
-  const formData = {
-    name,
-    gender: document.getElementById('gender').value,
-    subject: document.getElementById('subject').value,
-    level: document.getElementById('level').value,
-    academic: document.getElementById('academic').value,
-    conduct: document.getElementById('conduct').value,
-    strengths: document.getElementById('strengths').value.trim(),
-    weaknesses: document.getElementById('weaknesses').value.trim(),
-    tone: document.getElementById('tone').value,
-    length: document.getElementById('length').value,
-  };
+  if (targets.length === 0) return showToast('ℹ️ Tất cả đã có nhận xét');
 
-  const btn = document.getElementById('btn-generate');
-  const loading = document.getElementById('loading');
-  const resultBox = document.getElementById('result');
-
+  const btn = document.getElementById('btn-generate-all');
   btn.disabled = true;
-  loading.classList.add('show');
-  resultBox.textContent = '';
-  resultBox.classList.add('empty');
-  document.getElementById('btn-copy').disabled = true;
-  document.getElementById('btn-fill').disabled = true;
 
-  try {
-    const text = await callGemini(geminiKey, buildPrompt(formData));
-    resultBox.textContent = text;
-    resultBox.classList.remove('empty');
-    document.getElementById('btn-copy').disabled = false;
-    document.getElementById('btn-fill').disabled = false;
-  } catch (e) {
-    resultBox.textContent = `❌ Lỗi: ${e.message}`;
-    resultBox.classList.remove('empty');
-    showToast('❌ Lỗi khi gọi API');
-  } finally {
-    btn.disabled = false;
-    loading.classList.remove('show');
+  const progress = document.getElementById('progress');
+  progress.style.display = 'block';
+
+  const monHoc = subjectInfo.monHoc || 'môn học';
+  const RATE_LIMIT = 14; // max 14/phút để an toàn
+  let done = 0;
+  let errors = 0;
+
+  for (let i = 0; i < targets.length; i++) {
+    const s = targets[i];
+    progress.textContent = `⏳ Đang sinh ${i + 1}/${targets.length}: ${s.hoTen}...`;
+
+    try {
+      const text = await callGemini(geminiKey, buildPrompt(s, monHoc));
+      generated[s.hocSinhId] = text;
+      done++;
+    } catch (e) {
+      errors++;
+      console.error(`Lỗi ${s.hoTen}:`, e.message);
+    }
+
+    // Rate limit: sau mỗi RATE_LIMIT request, chờ 65 giây
+    if ((i + 1) % RATE_LIMIT === 0 && i + 1 < targets.length) {
+      progress.textContent = `⏸️ Chờ 65 giây để tránh rate limit... (${i + 1}/${targets.length})`;
+      await sleep(65000);
+    } else if (i + 1 < targets.length) {
+      await sleep(200); // delay nhỏ giữa các request
+    }
   }
+
+  progress.textContent = `✅ Hoàn thành: ${done} nhận xét${errors > 0 ? `, ${errors} lỗi` : ''}`;
+  renderStudentList();
+  document.getElementById('btn-fill-all').disabled = false;
+  btn.disabled = false;
 });
 
-// ── Copy ──────────────────────────────────────────────
-document.getElementById('btn-copy').addEventListener('click', () => {
-  const text = document.getElementById('result').textContent;
-  navigator.clipboard.writeText(text).then(() => showToast('✅ Đã copy!'));
-});
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
 
-// ── Fill vào trang ────────────────────────────────────
-document.getElementById('btn-fill').addEventListener('click', async () => {
-  const text = document.getElementById('result').textContent;
-  const { customSelector } = await chrome.storage.local.get('customSelector');
+// ── Điền tất cả vào trang ─────────────────────────────
+document.getElementById('btn-fill-all').addEventListener('click', async () => {
+  if (Object.keys(generated).length === 0) return showToast('⚠️ Chưa sinh nhận xét');
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.url?.includes('vnedu.vn')) return showToast('⚠️ Hãy mở trang vnedu.vn');
 
-  if (!tab?.url?.includes('vnedu.vn')) {
-    showToast('⚠️ Hãy mở trang vnedu.vn trước');
-    return;
-  }
+  const comments = Object.entries(generated).map(([hocSinhId, text]) => {
+    const s = students.find(x => x.hocSinhId === hocSinhId);
+    return { hocSinhId, suffix: s?.suffix || 'ck2', text };
+  });
 
   try {
-    const results = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: fillTextarea,
-      args: [text, customSelector || '']
-    });
-
-    const result = results?.[0]?.result;
-    if (result?.success) {
-      showToast('✅ Đã điền vào trang!');
-    } else {
-      showToast(`⚠️ ${result?.message || 'Không tìm thấy ô nhập liệu'}`);
-    }
+    const res = await chrome.tabs.sendMessage(tab.id, { type: 'FILL_ALL', comments });
+    showToast(`✅ Đã điền ${res.filled}/${comments.length} nhận xét vào trang`);
   } catch (e) {
     showToast('❌ Lỗi: ' + e.message);
   }
 });
-
-// ── Hàm inject vào trang (chạy trong context của page) ─
-function fillTextarea(text, customSelector) {
-  // Danh sách selector thử theo thứ tự ưu tiên
-  const selectors = customSelector
-    ? [customSelector]
-    : [
-        'textarea:focus',
-        'textarea[class*="comment"]',
-        'textarea[class*="nhan-xet"]',
-        'textarea[class*="nhanxet"]',
-        'textarea[placeholder*="nhận xét"]',
-        'textarea[placeholder*="nhan xet"]',
-        '.ant-input:focus',
-        'textarea.ant-input',
-        '[contenteditable="true"]:focus',
-        'textarea:visible',
-        'textarea'
-      ];
-
-  for (const sel of selectors) {
-    let el;
-    try { el = document.querySelector(sel); } catch { continue; }
-    if (!el) continue;
-
-    // Xử lý contenteditable
-    if (el.contentEditable === 'true') {
-      el.focus();
-      el.textContent = text;
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-      return { success: true };
-    }
-
-    // Xử lý textarea / input
-    el.focus();
-    // React/Vue cần native setter để trigger onChange
-    const nativeSetter = Object.getOwnPropertyDescriptor(
-      window.HTMLTextAreaElement.prototype, 'value'
-    )?.set || Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype, 'value'
-    )?.set;
-
-    if (nativeSetter) {
-      nativeSetter.call(el, text);
-    } else {
-      el.value = text;
-    }
-
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-    return { success: true };
-  }
-
-  return { success: false, message: 'Không tìm thấy ô nhập liệu. Click vào ô nhận xét trên trang rồi thử lại.' };
-}

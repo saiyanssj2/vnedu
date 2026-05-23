@@ -32,6 +32,18 @@ document.getElementById('btn-save-selector').addEventListener('click', () => {
   chrome.storage.local.set({ customSelector: sel }, () => showToast('✅ Đã lưu'));
 });
 
+// ── Helper: gửi message, tự inject content script nếu chưa có ──
+async function sendToTab(tabId, msg) {
+  try {
+    return await chrome.tabs.sendMessage(tabId, msg);
+  } catch {
+    // Content script chưa inject → inject thủ công rồi thử lại
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+    await new Promise(r => setTimeout(r, 300));
+    return await chrome.tabs.sendMessage(tabId, msg);
+  }
+}
+
 // ── Đọc dữ liệu từ trang ─────────────────────────────
 document.getElementById('btn-read').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -40,7 +52,7 @@ document.getElementById('btn-read').addEventListener('click', async () => {
   }
 
   try {
-    const res = await chrome.tabs.sendMessage(tab.id, { type: 'READ_STUDENTS' });
+    const res = await sendToTab(tab.id, { type: 'READ_STUDENTS' });
     students = res.students || [];
     subjectInfo = res.subjectInfo || {};
 
@@ -193,7 +205,7 @@ document.getElementById('btn-fill-all').addEventListener('click', async () => {
   });
 
   try {
-    const res = await chrome.tabs.sendMessage(tab.id, { type: 'FILL_ALL', comments });
+    const res = await sendToTab(tab.id, { type: 'FILL_ALL', comments });
     showToast(`✅ Đã điền ${res.filled}/${comments.length} nhận xét vào trang`);
   } catch (e) {
     showToast('❌ Lỗi: ' + e.message);
@@ -208,7 +220,7 @@ document.getElementById('btn-read-tongket').addEventListener('click', async () =
   if (!tab?.url?.includes('vnedu.vn')) return showToast('⚠️ Hãy mở trang vnedu.vn');
 
   try {
-    const res = await chrome.tabs.sendMessage(tab.id, { type: 'READ_DIEM_TONG_KET' });
+    const res = await sendToTab(tab.id, { type: 'READ_DIEM_TONG_KET' });
     if (!res?.total) return showToast('⚠️ Không tìm thấy dữ liệu. Hãy mở trang "Điểm tổng kết"');
 
     cachedThongKe = res.thongKe;
@@ -276,11 +288,11 @@ document.getElementById('btn-fill-chunhiem').addEventListener('click', async () 
   if (!tab?.url?.includes('vnedu.vn')) return showToast('⚠️ Hãy mở trang vnedu.vn');
 
   try {
-    const pageRes = await chrome.tabs.sendMessage(tab.id, { type: 'DETECT_PAGE' });
+    const pageRes = await sendToTab(tab.id, { type: 'DETECT_PAGE' });
     if (pageRes?.page !== 'so_chu_nhiem') {
       return showToast('⚠️ Hãy mở trang "Quản lý sổ chủ nhiệm" trước');
     }
-    const res = await chrome.tabs.sendMessage(tab.id, { type: 'FILL_SO_CHU_NHIEM', thongKe: cachedThongKe });
+    const res = await sendToTab(tab.id, { type: 'FILL_SO_CHU_NHIEM', thongKe: cachedThongKe });
     showToast(`✅ Đã điền ${res.filled} ô vào Sổ CN`);
   } catch (e) {
     showToast('❌ ' + e.message);

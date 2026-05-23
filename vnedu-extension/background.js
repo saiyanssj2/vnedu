@@ -1,5 +1,5 @@
 const GEMINI_KEY = 'REPLACE_YOUR_KEY_HERE';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_KEY}`;
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('VnEdu Nhận Xét AI installed');

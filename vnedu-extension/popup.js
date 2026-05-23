@@ -22,28 +22,9 @@ let subjectInfo = {};    // môn học, lớp
 let generated = {};      // { hocSinhId: text }
 
 // ── Load settings ─────────────────────────────────────
-chrome.storage.local.get(['geminiKey', 'customSelector'], data => {
-  if (data.geminiKey) {
-    document.getElementById('api-key').value = data.geminiKey;
-    setApiStatus(true);
-  }
-  if (data.customSelector) {
+chrome.storage.local.get('customSelector', data => {
+  if (data.customSelector)
     document.getElementById('custom-selector').value = data.customSelector;
-  }
-});
-
-function setApiStatus(ok) {
-  document.getElementById('api-dot').className = `dot ${ok ? 'ok' : 'err'}`;
-  document.getElementById('api-status-text').textContent = ok ? 'API Key đã lưu ✓' : 'Chưa có API Key';
-}
-
-document.getElementById('btn-save-key').addEventListener('click', () => {
-  const key = document.getElementById('api-key').value.trim();
-  if (!key) return showToast('⚠️ Nhập API Key trước');
-  chrome.storage.local.set({ geminiKey: key }, () => {
-    setApiStatus(true);
-    showToast('✅ Đã lưu API Key');
-  });
 });
 
 document.getElementById('btn-save-selector').addEventListener('click', () => {
@@ -100,23 +81,15 @@ function renderStudentList() {
   }).join('');
 }
 
-// ── Gemini API ────────────────────────────────────────
-async function callGemini(apiKey, prompt) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 256 }
-    })
+// ── Gemini API — gọi qua background service worker ────
+async function callGemini(prompt) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ type: 'GEMINI_GENERATE', prompt }, res => {
+      if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+      if (res?.success) resolve(res.text);
+      else reject(new Error(res?.error || 'Unknown error'));
+    });
   });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error?.message || `HTTP ${res.status}`);
-  }
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
 }
 
 // ── Build prompt cho 1 học sinh ──────────────────────
@@ -157,8 +130,6 @@ Yêu cầu:
 
 // ── Generate tất cả (batch với rate limit) ────────────
 document.getElementById('btn-generate-all').addEventListener('click', async () => {
-  const { geminiKey } = await chrome.storage.local.get('geminiKey');
-  if (!geminiKey) return showToast('⚠️ Chưa có API Key — vào tab Cài đặt');
   if (students.length === 0) return showToast('⚠️ Chưa đọc dữ liệu từ trang');
 
   const onlyEmpty = document.getElementById('chk-only-empty').checked;
@@ -173,7 +144,7 @@ document.getElementById('btn-generate-all').addEventListener('click', async () =
   progress.style.display = 'block';
 
   const monHoc = subjectInfo.monHoc || 'môn học';
-  const RATE_LIMIT = 14; // max 14/phút để an toàn
+  const RATE_LIMIT = 14;
   let done = 0;
   let errors = 0;
 
@@ -182,7 +153,7 @@ document.getElementById('btn-generate-all').addEventListener('click', async () =
     progress.textContent = `⏳ Đang sinh ${i + 1}/${targets.length}: ${s.hoTen}...`;
 
     try {
-      const text = await callGemini(geminiKey, buildPrompt(s, monHoc));
+      const text = await callGemini(buildPrompt(s, monHoc));
       generated[s.hocSinhId] = text;
       done++;
     } catch (e) {

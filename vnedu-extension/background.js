@@ -60,6 +60,90 @@ const KHO_DEFAULT = {
   'Toán_chua_hoan_thanh': [
     'Cần ôn luyện thêm các phép tính cơ bản, chú ý rèn luyện để nắm vững kiến thức Toán.',
   ],
+  'Đạo đức_xuat_sac': [
+    'Có ý thức kỷ luật tốt, thực hiện đúng các chuẩn mực đạo đức và ứng xử lịch sự với mọi người.',
+    'Luôn thực hiện tốt nội quy lớp học, biết quan tâm giúp đỡ bạn bè và có thái độ lễ phép.',
+  ],
+  'Đạo đức_tot': [
+    'Có ý thức thực hiện các quy tắc ứng xử, biết giúp đỡ bạn bè và tôn trọng thầy cô.',
+    'Thực hiện tốt nội quy lớp học, có thái độ học tập nghiêm túc và ứng xử đúng mực.',
+  ],
+  'Đạo đức_hoan_thanh': [
+    'Cơ bản thực hiện được các yêu cầu môn Đạo đức, cần rèn luyện thêm ý thức kỷ luật.',
+  ],
+  'Đạo đức_chua_hoan_thanh': [
+    'Cần chú ý hơn trong việc thực hiện nội quy và rèn luyện các hành vi đạo đức.',
+  ],
+  'TN-XH_xuat_sac': [
+    'Có hiểu biết phong phú về tự nhiên và xã hội, biết quan sát và giải thích các hiện tượng xung quanh.',
+    'Nắm vững kiến thức TN-XH, biết liên hệ thực tế và trình bày rõ ràng những điều quan sát được.',
+  ],
+  'TN-XH_tot': [
+    'Hiểu và nắm được các kiến thức cơ bản về tự nhiên xã hội, biết vận dụng vào thực tế.',
+    'Tích cực tham gia các hoạt động khám phá, nắm được nội dung bài học và trình bày khá rõ ràng.',
+  ],
+  'TN-XH_hoan_thanh': [
+    'Nắm được kiến thức cơ bản môn TN-XH, cần tích cực quan sát và liên hệ thực tế hơn.',
+  ],
+  'TN-XH_chua_hoan_thanh': [
+    'Cần chú ý hơn trong giờ học TN-XH, tích cực quan sát và ghi nhớ kiến thức bài học.',
+  ],
+  'Âm nhạc_xuat_sac': [
+    'Có năng khiếu âm nhạc, hát đúng giai điệu, thuộc lời và thể hiện cảm xúc tốt qua bài hát.',
+    'Cảm thụ âm nhạc tốt, hát đúng nhịp điệu và tích cực tham gia các hoạt động âm nhạc.',
+  ],
+  'Âm nhạc_tot': [
+    'Hát đúng giai điệu, thuộc lời bài hát và tham gia tích cực các hoạt động âm nhạc.',
+    'Có cảm nhận âm nhạc khá tốt, hát đúng nhịp và hoàn thành tốt các yêu cầu môn học.',
+  ],
+  'Âm nhạc_hoan_thanh': [
+    'Hoàn thành các yêu cầu cơ bản môn Âm nhạc, cần luyện tập thêm để hát đúng và đều hơn.',
+  ],
+  'Âm nhạc_chua_hoan_thanh': [
+    'Cần luyện tập thêm để hát đúng giai điệu và nhịp điệu theo yêu cầu môn Âm nhạc.',
+  ],
+  'Mĩ thuật_xuat_sac': [
+    'Có năng khiếu hội họa, vẽ đẹp, tô màu hài hòa và thể hiện sự sáng tạo trong từng bài vẽ.',
+    'Sáng tạo trong các bài vẽ, biết phối màu hợp lý và trình bày bài sạch đẹp, ấn tượng.',
+  ],
+  'Mĩ thuật_tot': [
+    'Vẽ đúng yêu cầu, tô màu gọn gàng và có ý thức sáng tạo trong các bài học Mĩ thuật.',
+    'Hoàn thành tốt các bài vẽ, biết phối màu và trình bày bài sạch sẽ, cẩn thận.',
+  ],
+  'Mĩ thuật_hoan_thanh': [
+    'Hoàn thành các bài vẽ theo yêu cầu, cần rèn thêm kỹ năng tô màu và sáng tạo.',
+  ],
+  'Mĩ thuật_chua_hoan_thanh': [
+    'Cần cố gắng hơn trong các bài vẽ, chú ý tô màu đúng và hoàn thành bài đúng hạn.',
+  ],
+  'GDTC_xuat_sac': [
+    'Thể lực tốt, thực hiện đúng và đẹp các động tác thể dục, tích cực tham gia các hoạt động thể chất.',
+    'Nhanh nhẹn, khéo léo, thực hiện tốt các bài tập thể dục và đạt kết quả cao trong các bài kiểm tra.',
+  ],
+  'GDTC_tot': [
+    'Thực hiện đúng các động tác thể dục, tích cực tham gia luyện tập và có tiến bộ rõ rệt.',
+    'Hoàn thành tốt các bài tập thể dục, có ý thức rèn luyện thể chất thường xuyên.',
+  ],
+  'GDTC_hoan_thanh': [
+    'Hoàn thành các yêu cầu môn Thể dục, cần tích cực luyện tập thêm để nâng cao thể lực.',
+  ],
+  'GDTC_chua_hoan_thanh': [
+    'Cần tích cực hơn trong giờ Thể dục, chú ý thực hiện đúng các động tác theo hướng dẫn.',
+  ],
+  'HĐTN_xuat_sac': [
+    'Tích cực tham gia các hoạt động trải nghiệm, sáng tạo và hợp tác tốt với bạn bè trong nhóm.',
+    'Năng động, sáng tạo trong các hoạt động trải nghiệm, biết chia sẻ và hỗ trợ các bạn.',
+  ],
+  'HĐTN_tot': [
+    'Tham gia tích cực các hoạt động trải nghiệm, biết hợp tác và hoàn thành tốt nhiệm vụ được giao.',
+    'Có ý thức tham gia hoạt động tập thể, biết chia sẻ và thể hiện sự sáng tạo trong các hoạt động.',
+  ],
+  'HĐTN_hoan_thanh': [
+    'Tham gia các hoạt động trải nghiệm đúng yêu cầu, cần chủ động và sáng tạo hơn.',
+  ],
+  'HĐTN_chua_hoan_thanh': [
+    'Cần tích cực hơn trong các hoạt động trải nghiệm, chủ động tham gia và hợp tác với bạn bè.',
+  ],
 };
 
 // ── Keep-alive ────────────────────────────────────────
@@ -216,8 +300,30 @@ async function callGemini(prompt, retries = 2) {
 
 function buildPrompt(student, monHoc) {
   const mucDo = getMucDo(student);
-  const mucDoLabel = { xuat_sac: 'Hoàn thành xuất sắc', tot: 'Hoàn thành tốt', hoan_thanh: 'Hoàn thành', chua_hoan_thanh: 'Chưa hoàn thành' }[mucDo];
-  return `Viết 1-2 câu nhận xét học bạ tiểu học cho học sinh môn ${monHoc}, xếp loại ${mucDoLabel}. Không nhắc tên, không gạch đầu dòng, không xuống dòng, chỉ trả về đoạn nhận xét.`;
+  const mucDoLabel = {
+    xuat_sac: 'Hoàn thành xuất sắc',
+    tot: 'Hoàn thành tốt',
+    hoan_thanh: 'Hoàn thành',
+    chua_hoan_thanh: 'Chưa hoàn thành'
+  }[mucDo];
+
+  // Mô tả đặc thù theo môn — giúp AI sinh nhận xét sát thực hơn
+  const monDesc = {
+    'Tiếng Việt': 'kỹ năng đọc hiểu, viết văn, chính tả, làm văn',
+    'Toán':         'tính toán, giải toán, tư duy logic, các phép tính',
+    'Đạo đức':    'hành vi đạo đức, thái độ ứng xử, ý thức kỷ luật',
+    'TN-XH':       'kiến thức tự nhiên xã hội, quan sát, khám phá',
+    'Âm nhạc':    'cảm thụ âm nhạc, hát, nhập điệu',
+    'Mĩ thuật':   'vẽ, tô màu, sáng tạo thẩm mỹ',
+    'GDTC':        'thể lực, vận động, kỹ năng thể dục',
+    'HĐTN':        'tham gia hoạt động trải nghiệm, sáng tạo, hợp tác',
+  }[monHoc] || 'kiến thức và kỹ năng môn học';
+
+  return `Viết 1-2 câu nhận xét học bạ tiểu học:
+- Môn: ${monHoc} (tập trung vào: ${monDesc})
+- Xếp loại: ${mucDoLabel}
+- Không nhắc tên học sinh, không gạch đầu dòng, không xuống dòng
+- Chỉ trả về đoạn nhận xét, không giải thích thêm`;
 }
 
 function sleep(ms) {

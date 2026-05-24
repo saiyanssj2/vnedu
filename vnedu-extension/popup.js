@@ -44,6 +44,31 @@ async function sendToTab(tabId, msg) {
   }
 }
 
+// ── Resume nếu batch đang chạy khi popup mở lại ──────────
+chrome.storage.local.get('batchStatus', ({ batchStatus }) => {
+  if (!batchStatus?.running) return;
+  const btn = document.getElementById('btn-generate-all');
+  const progress = document.getElementById('progress');
+  btn.disabled = true;
+  progress.style.display = 'block';
+  progress.textContent = `⏳ Đang chạy nền: ${batchStatus.done}/${batchStatus.total}...`;
+
+  const pollInterval = setInterval(async () => {
+    const { batchStatus: bs } = await chrome.storage.local.get('batchStatus');
+    if (!bs) return;
+    if (bs.running) {
+      progress.textContent = `⏳ Đang sinh ${bs.done + 1}/${bs.total}: ${bs.current || ''}...`;
+    } else {
+      clearInterval(pollInterval);
+      Object.assign(generated, bs.generated);
+      progress.textContent = `✅ Hoàn thành: ${bs.done} nhận xét${bs.errors > 0 ? `, ${bs.errors} lỗi` : ''}`;
+      renderStudentList();
+      document.getElementById('btn-fill-all').disabled = false;
+      btn.disabled = false;
+    }
+  }, 1000);
+});
+
 // ── Đọc dữ liệu từ trang ─────────────────────────────
 document.getElementById('btn-read').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -116,25 +141,31 @@ document.getElementById('btn-generate-all').addEventListener('click', async () =
   const progress = document.getElementById('progress');
   btn.disabled = true;
   progress.style.display = 'block';
-  progress.textContent = `⏳ Đang sinh ${targets.length} nhận xét... (chạy nền, đừng đóng popup)`;
 
   const monHoc = subjectInfo.monHoc || 'môn học';
 
-  chrome.runtime.sendMessage(
-    { type: 'GEMINI_GENERATE_BATCH', targets, monHoc, rateLimit: 14 },
-    res => {
-      if (chrome.runtime.lastError || !res?.success) {
-        progress.textContent = `❌ Lỗi: ${chrome.runtime.lastError?.message || res?.error}`;
-        btn.disabled = false;
-        return;
-      }
-      Object.assign(generated, res.generated);
-      progress.textContent = `✅ Hoàn thành: ${res.done} nhận xét${res.errors > 0 ? `, ${res.errors} lỗi` : ''}`;
+  // Xoa batch cu
+  await chrome.storage.local.remove('batchStatus');
+
+  // Kick off background batch
+  chrome.runtime.sendMessage({ type: 'GEMINI_GENERATE_BATCH', targets, monHoc });
+
+  // Poll storage moi 1 giay
+  const pollInterval = setInterval(async () => {
+    const { batchStatus } = await chrome.storage.local.get('batchStatus');
+    if (!batchStatus) return;
+
+    if (batchStatus.running) {
+      progress.textContent = `⏳ Đang sinh ${batchStatus.done + 1}/${batchStatus.total}: ${batchStatus.current || ''}...`;
+    } else {
+      clearInterval(pollInterval);
+      Object.assign(generated, batchStatus.generated);
+      progress.textContent = `✅ Hoàn thành: ${batchStatus.done} nhận xét${batchStatus.errors > 0 ? `, ${batchStatus.errors} lỗi` : ''}`;
       renderStudentList();
       document.getElementById('btn-fill-all').disabled = false;
       btn.disabled = false;
     }
-  );
+  }, 1000);
 });
 
 function sleep(ms) {

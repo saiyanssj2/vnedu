@@ -61,9 +61,15 @@ chrome.storage.local.get('batchStatus', ({ batchStatus }) => {
     } else {
       clearInterval(pollInterval);
       Object.assign(generated, bs.generated);
-      progress.textContent = `✅ Hoàn thành: ${bs.done} nhận xét${bs.errors > 0 ? `, ${bs.errors} lỗi` : ''}`;
+      if (bs.fatalError) {
+        progress.textContent = `❌ ${bs.fatalError}`;
+      } else if (bs.usedFallback) {
+        progress.textContent = `✅ Hoàn thành: ${bs.done} nhận xét (dùng mẫu có sẵn do API hết quota)`;
+      } else {
+        progress.textContent = `✅ Hoàn thành: ${bs.done} nhận xét`;
+      }
       renderStudentList();
-      document.getElementById('btn-fill-all').disabled = false;
+      if (bs.done > 0) document.getElementById('btn-fill-all').disabled = false;
       btn.disabled = false;
     }
   }, 1000);

@@ -1,33 +1,45 @@
 const GEMINI_KEY = 'REPLACE_YOUR_KEY_HERE';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_KEY}`;
 
+// Keep-alive: ping moi 20 giay de tranh service worker bi kill
+chrome.alarms.create('keepalive', { periodInMinutes: 0.3 });
+chrome.alarms.onAlarm.addListener(() => {});
+
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('VnEdu Nhận Xét AI installed');
+  console.log('VnEdu Nhan Xet AI installed');
+});
+
+// Mo side panel khi click icon
+chrome.action.onClicked.addListener(tab => {
+  chrome.sidePanel.open({ tabId: tab.id });
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg.type === 'GEMINI_GENERATE') {
-    callGemini(msg.prompt)
-      .then(text => sendResponse({ success: true, text }))
-      .catch(e => sendResponse({ success: false, error: e.message }));
-    return true;
-  }
-
   if (msg.type === 'GEMINI_GENERATE_BATCH') {
-    // Chay batch o background, khong phu thuoc popup con song
-    runBatch(msg.targets, msg.monHoc, msg.rateLimit)
-      .then(result => sendResponse({ success: true, ...result }))
-      .catch(e => sendResponse({ success: false, error: e.message }));
-    return true;
+    // Khong dung sendResponse vi se bi timeout
+    // Thay vao do luu ket qua vao storage, popup tu poll
+    runBatch(msg.targets, msg.monHoc).catch(console.error);
+    sendResponse({ started: true });
+    return false;
   }
 });
 
-async function runBatch(targets, monHoc, rateLimit = 14) {
+async function runBatch(targets, monHoc) {
+  await chrome.storage.local.set({
+    batchStatus: { running: true, done: 0, total: targets.length, errors: 0, generated: {} }
+  });
+
   const generated = {};
   let errors = 0;
 
   for (let i = 0; i < targets.length; i++) {
     const s = targets[i];
+
+    // Cap nhat trang thai
+    await chrome.storage.local.set({
+      batchStatus: { running: true, done: i, total: targets.length, errors, generated, current: s.hoTen }
+    });
+
     try {
       const text = await callGemini(buildPrompt(s, monHoc));
       generated[s.hocSinhId] = text;
@@ -36,31 +48,17 @@ async function runBatch(targets, monHoc, rateLimit = 14) {
       console.error(`Loi ${s.hoTen}:`, e.message);
     }
 
-    if ((i + 1) % rateLimit === 0 && i + 1 < targets.length) {
-      await new Promise(r => setTimeout(r, 65000));
-    } else if (i + 1 < targets.length) {
-      await new Promise(r => setTimeout(r, 300));
+    // Rate limit: 14 req/phut
+    if ((i + 1) % 14 === 0 && i + 1 < targets.length) {
+      await sleep(65000);
+    } else {
+      await sleep(300);
     }
   }
 
-  return { generated, errors, done: Object.keys(generated).length };
-}
-
-function buildPrompt(student, monHoc) {
-  const score = student.ktScore;
-  const xl = student.xlValue;
-  let mucDo, goiY;
-  if (score >= 9 && xl === 'T') {
-    mucDo = 'Hoan thanh xuat sac'; goiY = 'nam vung kien thuc, van dung tot, thanh tich noi bat';
-  } else if (score >= 7 && xl === 'T') {
-    mucDo = 'Hoan thanh tot'; goiY = 'hieu bai, lam bai dung yeu cau, co tien bo';
-  } else if (score >= 5) {
-    mucDo = 'Hoan thanh'; goiY = 'co ban dat yeu cau, can co gang them';
-  } else {
-    mucDo = 'Chua hoan thanh'; goiY = 'can duoc ho tro them, chua dat yeu cau co ban';
-  }
-  return `Ban la giao vien tieu hoc. Viet nhan xet hoc ba cho hoc sinh:
-Ten: ${student.hoTen}\nMon: ${monHoc}\nXep loai: ${mucDo}\nGoi y: ${goiY}\nYeu cau: 1-2 cau ngan gon, phu hop hoc ba tieu hoc, khong dung gach dau dong, khong xuong dong, chi tra ve doan nhan xet`;
+  await chrome.storage.local.set({
+    batchStatus: { running: false, done: Object.keys(generated).length, total: targets.length, errors, generated }
+  });
 }
 
 async function callGemini(prompt, retries = 3) {
@@ -85,10 +83,35 @@ async function callGemini(prompt, retries = 3) {
     if (res.status === 429 && attempt < retries - 1) {
       const waitMatch = msg.match(/(\d+\.?\d*)s/);
       const waitSec = waitMatch ? Math.ceil(parseFloat(waitMatch[1])) + 2 : 65;
-      await new Promise(r => setTimeout(r, waitSec * 1000));
+      await sleep(waitSec * 1000);
       continue;
     }
 
     throw new Error(msg);
   }
+}
+
+function buildPrompt(student, monHoc) {
+  const score = student.ktScore;
+  const xl = student.xlValue;
+  let mucDo, goiY;
+  if (score >= 9 && xl === 'T') {
+    mucDo = 'Hoàn thành xuất sắc'; goiY = 'nắm vững kiến thức, vận dụng tốt, thành tích nổi bật';
+  } else if (score >= 7 && xl === 'T') {
+    mucDo = 'Hoàn thành tốt'; goiY = 'hiểu bài, làm bài đúng yêu cầu, có tiến bộ';
+  } else if (score >= 5) {
+    mucDo = 'Hoàn thành'; goiY = 'cơ bản đạt yêu cầu, cần cố gắng thêm';
+  } else {
+    mucDo = 'Chưa hoàn thành'; goiY = 'cần được hỗ trợ thêm, chưa đạt yêu cầu cơ bản';
+  }
+  return `Bạn là giáo viên tiểu học. Viết nhận xét học bạ cho học sinh:
+Tên: ${student.hoTen}
+Môn: ${monHoc}
+Xếp loại: ${mucDo}
+Gợi ý: ${goiY}
+Yêu cầu: 1-2 câu ngắn gọn, phù hợp học bạ tiểu học, không dùng gạch đầu dòng, không xuống dòng, chỉ trả về đoạn nhận xét`;
+}
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
 }

@@ -4,8 +4,14 @@
 function detectPage() {
   const title = document.querySelector('.x-window-header-text')?.textContent?.trim() || '';
   const url = window.location.href;
+
   if (title.includes('Điểm tổng kết') || url.includes('tong_ket')) return 'diem_tong_ket';
-  if (title.includes('sổ chủ nhiệm') || title.includes('Sổ chủ nhiệm') || url.includes('chu_nhiem')) return 'so_chu_nhiem';
+
+  // Detect Sổ CN theo DOM — có class tong_ket_nam và input NL/PC
+  if (document.querySelector('.tong_ket_nam') ||
+      document.querySelector('input[name="nl_tcth"]') ||
+      title.includes('chủ nhiệm') || title.includes('Chủ nhiệm')) return 'so_chu_nhiem';
+
   if (title.includes('Sổ nhận xét') || title.includes('Sổ điểm')) return 'so_nhan_xet';
   return 'unknown';
 }

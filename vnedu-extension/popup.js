@@ -154,7 +154,7 @@ document.getElementById('btn-generate-all').addEventListener('click', async () =
   await chrome.storage.local.remove('batchStatus');
 
   // Kick off background batch
-  chrome.runtime.sendMessage({ type: 'GEMINI_GENERATE_BATCH', targets, monHoc });
+  chrome.runtime.sendMessage({ type: 'GEMINI_GENERATE_BATCH', targets, monHoc, lop: subjectInfo.lop });
 
   // Poll storage moi 1 giay
   const pollInterval = setInterval(async () => {

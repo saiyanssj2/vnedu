@@ -29,10 +29,10 @@ function readStudents() {
     const hoTen = img.getAttribute('ho_ten');
     if (!hocSinhId || !hoTen) return;
 
-    // Xác định suffix: ck1 hay ck2 từ input đầu tiên tìm được
-    const anyInput = row.querySelector('input.ktck');
-    if (!anyInput) return;
-    const suffix = anyInput.getAttribute('t'); // 'ck1' hoặc 'ck2'
+    // Lấy suffix từ textarea hoặc input có attribute t
+    const anyEl = row.querySelector('textarea[t], input[t]');
+    if (!anyEl) return;
+    const suffix = anyEl.getAttribute('t');
 
     const ktInput = row.querySelector(`input[id="txt_${hocSinhId}_3_${suffix}"]`);
     const xlInput = row.querySelector(`input[id="txt_${hocSinhId}_4_${suffix}"]`);
@@ -64,7 +64,7 @@ function getSubjectInfo() {
   const monMatch = text.match(/Môn học:\s*([^\n]+)/);
   const lopMatch = text.match(/Lớp:\s*([^\s]+)/);
   return {
-    monHoc: monMatch ? monMatch[1].trim().replace(/- Học kỳ \d/, '').trim() : 'môn học',
+    monHoc: monMatch ? monMatch[1].trim().replace(/\s*-\s*Học kỳ.*$/i, '').trim() : 'môn học',
     lop: lopMatch ? lopMatch[1].trim() : ''
   };
 }

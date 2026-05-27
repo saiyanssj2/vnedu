@@ -1,161 +1,8 @@
-const GEMINI_KEY = 'REPLACE_YOUR_KEY_HERE';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_KEY}`;
-
-// ── Kho mẫu mặc định (seed data) ─────────────────────
-const KHO_DEFAULT = {
-  'default_xuat_sac': [
-    'Nắm vững kiến thức, vận dụng linh hoạt và đạt kết quả xuất sắc trong học tập.',
-    'Học tập tích cực, hiểu bài sâu sắc và hoàn thành xuất sắc các yêu cầu môn học.',
-    'Tư duy tốt, tiếp thu bài nhanh và luôn hoàn thành bài tập đầy đủ, chính xác.',
-    'Chăm chỉ, cẩn thận trong học tập, nắm chắc kiến thức và vận dụng tốt vào thực hành.',
-  ],
-  'default_tot': [
-    'Hiểu bài và hoàn thành tốt các yêu cầu học tập, có nhiều tiến bộ trong học kỳ.',
-    'Học tập nghiêm túc, làm bài đúng yêu cầu và có ý thức rèn luyện thường xuyên.',
-    'Nắm được kiến thức cơ bản, hoàn thành bài tập đầy đủ và có tiến bộ rõ rệt.',
-    'Chú ý nghe giảng, hiểu bài và hoàn thành tốt nhiệm vụ học tập được giao.',
-  ],
-  'default_hoan_thanh': [
-    'Cơ bản nắm được kiến thức, hoàn thành các yêu cầu học tập, cần cố gắng thêm.',
-    'Đã hoàn thành chương trình học, cần tích cực hơn trong việc ôn luyện và rèn luyện.',
-    'Đạt yêu cầu cơ bản của môn học, cần chú ý hơn trong giờ học để tiến bộ hơn.',
-    'Hoàn thành bài tập đúng hạn, cần rèn luyện thêm để nâng cao kết quả học tập.',
-  ],
-  'default_chua_hoan_thanh': [
-    'Cần cố gắng hơn trong học tập, chú ý nghe giảng và hoàn thành đầy đủ bài tập.',
-    'Chưa đạt yêu cầu môn học, cần được hỗ trợ thêm và tích cực ôn luyện kiến thức.',
-    'Cần nỗ lực nhiều hơn, chú ý lắng nghe và hoàn thành bài tập theo yêu cầu.',
-  ],
-  'Tiếng Việt_xuat_sac': [
-    'Đọc hiểu tốt, viết văn mạch lạc, dùng từ chính xác và diễn đạt rõ ràng, sáng tạo.',
-    'Có vốn từ phong phú, viết câu đúng ngữ pháp và trình bày bài viết rõ ràng, sạch đẹp.',
-    'Nắm vững kiến thức Tiếng Việt, đọc hiểu tốt và viết bài có bố cục rõ ràng, diễn đạt hay.',
-  ],
-  'Tiếng Việt_tot': [
-    'Đọc hiểu được bài, viết câu đúng và trình bày sạch, dùng từ phù hợp với chủ đề.',
-    'Có vốn từ khá phong phú, đặt câu đúng ngữ pháp và biết kể lại nội dung bài đọc rõ ràng.',
-    'Nắm được kiến thức Tiếng Việt, làm bài đúng yêu cầu và có cố gắng trong rèn chữ viết.',
-  ],
-  'Tiếng Việt_hoan_thanh': [
-    'Đọc và viết được nội dung cơ bản, cần luyện thêm cách dùng từ và đặt câu phù hợp.',
-    'Hoàn thành yêu cầu môn Tiếng Việt, cần rèn thêm chính tả và cách diễn đạt trong bài viết.',
-  ],
-  'Tiếng Việt_chua_hoan_thanh': [
-    'Cần rèn luyện thêm kỹ năng đọc hiểu và viết, chú ý chính tả và cách đặt câu.',
-  ],
-  'Toán_xuat_sac': [
-    'Tư duy toán học tốt, tính toán chính xác và giải được các bài toán nâng cao.',
-    'Nắm vững các phép tính, giải toán nhanh và chính xác, có khả năng tư duy logic tốt.',
-    'Hiểu sâu kiến thức Toán, vận dụng linh hoạt vào giải bài tập và đạt kết quả cao.',
-  ],
-  'Toán_tot': [
-    'Tính toán đúng, nắm được các dạng toán cơ bản và hoàn thành bài tập đầy đủ.',
-    'Hiểu bài và làm đúng các phép tính, cần rèn thêm tốc độ tính toán.',
-    'Nắm được kiến thức Toán cơ bản, giải bài tập đúng phương pháp và trình bày rõ ràng.',
-  ],
-  'Toán_hoan_thanh': [
-    'Thực hiện được các phép tính cơ bản, cần luyện thêm để nâng cao tốc độ và độ chính xác.',
-    'Hoàn thành yêu cầu môn Toán, cần chú ý hơn trong việc kiểm tra lại kết quả.',
-  ],
-  'Toán_chua_hoan_thanh': [
-    'Cần ôn luyện thêm các phép tính cơ bản, chú ý rèn luyện để nắm vững kiến thức Toán.',
-  ],
-  'Đạo đức_xuat_sac': [
-    'Có ý thức kỷ luật tốt, thực hiện đúng các chuẩn mực đạo đức và ứng xử lịch sự với mọi người.',
-    'Luôn thực hiện tốt nội quy lớp học, biết quan tâm giúp đỡ bạn bè và có thái độ lễ phép.',
-  ],
-  'Đạo đức_tot': [
-    'Có ý thức thực hiện các quy tắc ứng xử, biết giúp đỡ bạn bè và tôn trọng thầy cô.',
-    'Thực hiện tốt nội quy lớp học, có thái độ học tập nghiêm túc và ứng xử đúng mực.',
-  ],
-  'Đạo đức_hoan_thanh': [
-    'Cơ bản thực hiện được các yêu cầu môn Đạo đức, cần rèn luyện thêm ý thức kỷ luật.',
-  ],
-  'Đạo đức_chua_hoan_thanh': [
-    'Cần chú ý hơn trong việc thực hiện nội quy và rèn luyện các hành vi đạo đức.',
-  ],
-  'TN-XH_xuat_sac': [
-    'Có hiểu biết phong phú về tự nhiên và xã hội, biết quan sát và giải thích các hiện tượng xung quanh.',
-    'Nắm vững kiến thức TN-XH, biết liên hệ thực tế và trình bày rõ ràng những điều quan sát được.',
-  ],
-  'TN-XH_tot': [
-    'Hiểu và nắm được các kiến thức cơ bản về tự nhiên xã hội, biết vận dụng vào thực tế.',
-    'Tích cực tham gia các hoạt động khám phá, nắm được nội dung bài học và trình bày khá rõ ràng.',
-  ],
-  'TN-XH_hoan_thanh': [
-    'Nắm được kiến thức cơ bản môn TN-XH, cần tích cực quan sát và liên hệ thực tế hơn.',
-  ],
-  'TN-XH_chua_hoan_thanh': [
-    'Cần chú ý hơn trong giờ học TN-XH, tích cực quan sát và ghi nhớ kiến thức bài học.',
-  ],
-  'Âm nhạc_xuat_sac': [
-    'Có năng khiếu âm nhạc, hát đúng giai điệu, thuộc lời và thể hiện cảm xúc tốt qua bài hát.',
-    'Cảm thụ âm nhạc tốt, hát đúng nhịp điệu và tích cực tham gia các hoạt động âm nhạc.',
-  ],
-  'Âm nhạc_tot': [
-    'Hát đúng giai điệu, thuộc lời bài hát và tham gia tích cực các hoạt động âm nhạc.',
-    'Có cảm nhận âm nhạc khá tốt, hát đúng nhịp và hoàn thành tốt các yêu cầu môn học.',
-  ],
-  'Âm nhạc_hoan_thanh': [
-    'Hoàn thành các yêu cầu cơ bản môn Âm nhạc, cần luyện tập thêm để hát đúng và đều hơn.',
-  ],
-  'Âm nhạc_chua_hoan_thanh': [
-    'Cần luyện tập thêm để hát đúng giai điệu và nhịp điệu theo yêu cầu môn Âm nhạc.',
-  ],
-  'Mĩ thuật_xuat_sac': [
-    'Có năng khiếu hội họa, vẽ đẹp, tô màu hài hòa và thể hiện sự sáng tạo trong từng bài vẽ.',
-    'Sáng tạo trong các bài vẽ, biết phối màu hợp lý và trình bày bài sạch đẹp, ấn tượng.',
-  ],
-  'Mĩ thuật_tot': [
-    'Vẽ đúng yêu cầu, tô màu gọn gàng và có ý thức sáng tạo trong các bài học Mĩ thuật.',
-    'Hoàn thành tốt các bài vẽ, biết phối màu và trình bày bài sạch sẽ, cẩn thận.',
-  ],
-  'Mĩ thuật_hoan_thanh': [
-    'Hoàn thành các bài vẽ theo yêu cầu, cần rèn thêm kỹ năng tô màu và sáng tạo.',
-  ],
-  'Mĩ thuật_chua_hoan_thanh': [
-    'Cần cố gắng hơn trong các bài vẽ, chú ý tô màu đúng và hoàn thành bài đúng hạn.',
-  ],
-  'GDTC_xuat_sac': [
-    'Thể lực tốt, thực hiện đúng và đẹp các động tác thể dục, tích cực tham gia các hoạt động thể chất.',
-    'Nhanh nhẹn, khéo léo, thực hiện tốt các bài tập thể dục và đạt kết quả cao trong các bài kiểm tra.',
-  ],
-  'GDTC_tot': [
-    'Thực hiện đúng các động tác thể dục, tích cực tham gia luyện tập và có tiến bộ rõ rệt.',
-    'Hoàn thành tốt các bài tập thể dục, có ý thức rèn luyện thể chất thường xuyên.',
-  ],
-  'GDTC_hoan_thanh': [
-    'Hoàn thành các yêu cầu môn Thể dục, cần tích cực luyện tập thêm để nâng cao thể lực.',
-  ],
-  'GDTC_chua_hoan_thanh': [
-    'Cần tích cực hơn trong giờ Thể dục, chú ý thực hiện đúng các động tác theo hướng dẫn.',
-  ],
-  'HĐTN_xuat_sac': [
-    'Tích cực tham gia các hoạt động trải nghiệm, sáng tạo và hợp tác tốt với bạn bè trong nhóm.',
-    'Năng động, sáng tạo trong các hoạt động trải nghiệm, biết chia sẻ và hỗ trợ các bạn.',
-  ],
-  'HĐTN_tot': [
-    'Tham gia tích cực các hoạt động trải nghiệm, biết hợp tác và hoàn thành tốt nhiệm vụ được giao.',
-    'Có ý thức tham gia hoạt động tập thể, biết chia sẻ và thể hiện sự sáng tạo trong các hoạt động.',
-  ],
-  'HĐTN_hoan_thanh': [
-    'Tham gia các hoạt động trải nghiệm đúng yêu cầu, cần chủ động và sáng tạo hơn.',
-  ],
-  'HĐTN_chua_hoan_thanh': [
-    'Cần tích cực hơn trong các hoạt động trải nghiệm, chủ động tham gia và hợp tác với bạn bè.',
-  ],
-};
+importScripts('kho/lop1.js', 'kho/lop2.js', 'kho/lop3.js', 'kho/lop4.js', 'kho/lop5.js');
 
 // ── Keep-alive ────────────────────────────────────────
 chrome.alarms.create('keepalive', { periodInMinutes: 0.3 });
 chrome.alarms.onAlarm.addListener(() => {});
-
-chrome.runtime.onInstalled.addListener(() => {
-  // Khởi tạo kho nếu chưa có
-  chrome.storage.local.get('khoNhanXet', ({ khoNhanXet }) => {
-    if (!khoNhanXet) chrome.storage.local.set({ khoNhanXet: KHO_DEFAULT });
-  });
-});
 
 chrome.action.onClicked.addListener(tab => {
   chrome.sidePanel.open({ tabId: tab.id });
@@ -163,45 +10,73 @@ chrome.action.onClicked.addListener(tab => {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'GEMINI_GENERATE_BATCH') {
-    runBatch(msg.targets, msg.monHoc).catch(console.error);
+    runBatch(msg.targets, msg.monHoc, msg.lop).catch(console.error);
     sendResponse({ started: true });
     return false;
   }
 });
 
-// ── Lấy từ kho (fallback) ─────────────────────────────
-async function getFromKho(monHoc, mucDo) {
-  const { khoNhanXet } = await chrome.storage.local.get('khoNhanXet');
-  const kho = khoNhanXet || KHO_DEFAULT;
+// ── Lấy từ kho (tránh trùng) ─────────────────────────
+async function getFromKho(monHoc, mucDo, lop) {
+  const { recentUsed: storedRecent } = await chrome.storage.local.get('recentUsed');
+  const recentMap = storedRecent || {};
 
-  // Ưu tiên kho theo môn, fallback về default
-  const key = `${monHoc}_${mucDo}`;
-  const keyDefault = `default_${mucDo}`;
-  const list = kho[key]?.length ? kho[key] : (kho[keyDefault] || KHO_DEFAULT[keyDefault]);
-
-  return list[Math.floor(Math.random() * list.length)];
-}
-
-// ── Lưu vào kho sau khi API trả về ───────────────────
-async function saveToKho(monHoc, mucDo, text) {
-  const { khoNhanXet } = await chrome.storage.local.get('khoNhanXet');
-  const kho = khoNhanXet || { ...KHO_DEFAULT };
   const key = `${monHoc}_${mucDo}`;
 
-  if (!kho[key]) kho[key] = [];
+  // Chuẩn hóa tên môn để khớp key trong kho
+  const monNorm = monHoc.trim()
+    .replace(/\s*-\s*Học kỳ.*$/i, '')
+    .trim()
+    .replace(/^Giáo dục thể chất$/i, 'GDTC')
+    .replace(/^Hoạt động trải nghiệm$/i, 'HĐTN')
+    .replace(/^Tự nhiên và Xã hội$/i, 'TN-XH')
+    .replace(/^Tự nhiên - Xã hội$/i, 'TN-XH')
+    .replace(/^Mỹ thuật$/i, 'Mĩ thuật');
+  const keyNorm = `${monNorm}_${mucDo}`;
 
-  // Tránh trùng lặp, giới hạn 20 mẫu mỗi key
-  if (!kho[key].includes(text)) {
-    kho[key].push(text);
-    if (kho[key].length > 20) kho[key].shift();
-    await chrome.storage.local.set({ khoNhanXet: kho });
+  // Xác định số lớp (1-5)
+  const soLop = parseInt(lop) || 1;
+  // Chọn các kho từ lớp hiện tại trở xuống (lớp dưới có ưu tiên hơn)
+  const allKhos = [KHO_LOP1, KHO_LOP2, KHO_LOP3, KHO_LOP4, KHO_LOP5];
+  const khosSrc = allKhos.slice(0, soLop);
+
+  // Merge: nối mảng các kho từ lớp 1 đến lớp hiện tại
+  const KHO = {};
+  for (const src of khosSrc) {
+    for (const [k, v] of Object.entries(src)) {
+      KHO[k] = KHO[k] ? [...new Set([...KHO[k], ...v])] : [...v];
+    }
   }
+  const list = KHO[key]?.length ? KHO[key] : (KHO[keyNorm]?.length ? KHO[keyNorm] : null);
+
+  if (!list || list.length === 0) return '';
+
+  const used = recentMap[key] || [];
+  const available = list.filter(t => !used.includes(t));
+  const pool = available.length > 0 ? available : list;
+
+  const text = pool[Math.floor(Math.random() * pool.length)];
+
+  recentMap[key] = [...used, text].slice(-(Math.min(list.length - 1, 10)));
+  await chrome.storage.local.set({ recentUsed: recentMap });
+
+  return text;
 }
 
 // ── Xác định mức độ ───────────────────────────────────
 function getMucDo(student) {
   const score = student.ktScore;
-  const xl = student.xlValue;
+  const xl = (student.xlValue || '').trim().toUpperCase();
+
+  // Môn chỉ có XL (không có KT): dùng xl trực tiếp
+  if (score === null || isNaN(score)) {
+    if (xl === 'T') return 'tot';
+    if (xl === 'D' || xl === 'Đ') return 'hoan_thanh';
+    if (xl === 'C') return 'chua_hoan_thanh';
+    return 'hoan_thanh';
+  }
+
+  // Môn có cả KT + XL
   if (score >= 9 && xl === 'T') return 'xuat_sac';
   if (score >= 7 && xl === 'T') return 'tot';
   if (score >= 5) return 'hoan_thanh';
@@ -209,62 +84,27 @@ function getMucDo(student) {
 }
 
 // ── Batch runner ──────────────────────────────────────
-async function runBatch(targets, monHoc) {
+async function runBatch(targets, monHoc, lop) {
   await chrome.storage.local.set({
-    batchStatus: { running: true, done: 0, total: targets.length, errors: 0, generated: {} }
+    batchStatus: { running: true, done: 0, total: targets.length, errors: 0, generated: {} },
+    recentUsed: {}
   });
 
   const generated = {};
-  let errors = 0;
-  let apiOk = true;
 
   for (let i = 0; i < targets.length; i++) {
     const s = targets[i];
     const mucDo = getMucDo(s);
 
     await chrome.storage.local.set({
-      batchStatus: { running: true, done: i, total: targets.length, errors, generated, current: s.hoTen }
+      batchStatus: { running: true, done: i, total: targets.length, errors: 0, generated, current: s.hoTen }
     });
 
-    let text = null;
-
-    if (apiOk) {
-      try {
-        text = await callGemini(buildPrompt(s, monHoc));
-        // Lưu vào kho để tích lũy
-        await saveToKho(monHoc, mucDo, text);
-      } catch (e) {
-        console.warn(`API loi:`, e.message);
-        if (e.message.includes('limit: 0') || e.message.includes('quota') ||
-            e.message.includes('403') || e.message.includes('not found')) {
-          apiOk = false;
-        }
-      }
-    }
-
-    // Fallback: lấy từ kho tích lũy
-    if (!text) {
-      text = await getFromKho(monHoc, mucDo);
-    }
-
-    generated[s.hocSinhId] = text;
-
-    // Chỉ delay rate limit khi API còn dùng
-    await sleep(apiOk ? 300 : 50);
-    if (apiOk && (i + 1) % 14 === 0 && i + 1 < targets.length) {
-      await sleep(65000);
-    }
+    generated[s.hocSinhId] = await getFromKho(monHoc, mucDo, lop);
   }
 
   await chrome.storage.local.set({
-    batchStatus: {
-      running: false,
-      done: Object.keys(generated).length,
-      total: targets.length,
-      errors,
-      generated,
-      usedFallback: !apiOk
-    }
+    batchStatus: { running: false, done: Object.keys(generated).length, total: targets.length, errors: 0, generated }
   });
 }
 

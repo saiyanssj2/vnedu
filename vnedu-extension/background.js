@@ -4,6 +4,12 @@ importScripts('kho/lop1.js', 'kho/lop2.js', 'kho/lop3.js', 'kho/lop4.js', 'kho/l
 chrome.alarms.create('keepalive', { periodInMinutes: 0.3 });
 chrome.alarms.onAlarm.addListener(() => {});
 
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url?.includes('vnedu.vn')) {
+    chrome.sidePanel.open({ tabId });
+  }
+});
+
 chrome.action.onClicked.addListener(tab => {
   chrome.sidePanel.open({ tabId: tab.id });
 });

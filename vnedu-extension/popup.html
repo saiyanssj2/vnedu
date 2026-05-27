@@ -8,6 +8,8 @@
 
     body {
       width: 420px;
+      min-width: 180px;
+      transition: width 0.3s;
       font-family: 'Segoe UI', sans-serif;
       font-size: 13px;
       background: #f5f7fa;
@@ -25,21 +27,8 @@
     header h1 { font-size: 14px; font-weight: 600; }
     header span { font-size: 11px; opacity: 0.8; }
 
-    .tabs {
-      display: flex;
-      background: white;
-      border-bottom: 2px solid #e3e8f0;
-    }
-    .tab {
-      flex: 1; padding: 8px; text-align: center; cursor: pointer;
-      font-size: 12px; color: #666; border: none; background: none;
-    }
-    .tab.active { color: #1565c0; border-bottom: 2px solid #1565c0; font-weight: 600; margin-bottom: -2px; }
+    .main { padding: 12px; }
 
-    .panel { display: none; padding: 12px; }
-    .panel.active { display: block; }
-
-    /* ── Batch panel ── */
     .action-bar {
       display: flex;
       gap: 8px;
@@ -74,7 +63,6 @@
     .btn-success:hover:not(:disabled) { opacity: 0.9; }
     .btn-secondary { background: #e8f0fe; color: #1565c0; }
     .btn-secondary:hover:not(:disabled) { background: #d2e3fc; }
-    .btn-full { width: 100%; margin-top: 6px; padding: 9px; }
 
     .options-row {
       display: flex;
@@ -95,7 +83,6 @@
       margin-bottom: 8px;
     }
 
-    /* ── Student list ── */
     #student-list {
       max-height: 340px;
       overflow-y: auto;
@@ -148,25 +135,28 @@
       font-size: 12px;
     }
 
-    /* ── Settings ── */
-    .form-group { margin-bottom: 12px; }
-    label {
-      display: block; font-size: 11px; font-weight: 600;
-      color: #555; margin-bottom: 4px; text-transform: uppercase;
+    /* Thống kê sổ CN */
+    #thongke-preview {
+      display: none;
+      background: white;
+      border: 1px solid #dde3ed;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 12px;
+      max-height: 380px;
+      overflow-y: auto;
     }
-    input, select {
-      width: 100%; padding: 7px 10px;
-      border: 1px solid #dde3ed; border-radius: 6px;
-      font-size: 13px; background: white; font-family: inherit;
-    }
-    input:focus { outline: none; border-color: #1565c0; }
 
-    .api-status { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 5px; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
-    .dot.ok { background: #4caf50; }
-    .dot.err { background: #f44336; }
-    .hint { font-size: 11px; color: #888; margin-top: 4px; }
-    .hint a { color: #1565c0; text-decoration: none; }
+    #thongke-guide {
+      display: none;
+      margin-top: 10px;
+      padding: 8px;
+      background: #e8f5e9;
+      border-radius: 6px;
+      font-size: 11px;
+      color: #2e7d32;
+      line-height: 1.6;
+    }
 
     .toast {
       position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
@@ -182,77 +172,41 @@
 <header>
   <div>
     <h1>📝 VnEdu Nhận Xét AI</h1>
-    <span>Tự động sinh nhận xét từ dữ liệu trên trang</span>
+    <span id="page-label">Đang nhận diện trang...</span>
   </div>
+  <button class="btn btn-secondary" id="btn-reload" style="margin-left:auto">🔄</button>
 </header>
 
-<div class="tabs">
-  <button class="tab active" data-tab="batch">📋 Nhận xét</button>
-  <button class="tab" data-tab="thongke">📊 Sổ CN</button>
-  <button class="tab" data-tab="settings">⚙️ Cài đặt</button>
-</div>
+<div class="main">
 
-<!-- TAB: BATCH -->
-<div class="panel active" id="tab-batch">
-
-  <div class="action-bar">
-    <button class="btn btn-secondary" id="btn-read">🔍 Đọc từ trang</button>
-    <button class="btn btn-primary" id="btn-generate-all" disabled>✨ Sinh nhận xét</button>
-    <button class="btn btn-success" id="btn-fill-all" disabled>⬇️ Điền vào trang</button>
-  </div>
-
-  <div class="subject-info" id="subject-info">Bấm "Đọc từ trang" để bắt đầu</div>
-
-  <div class="options-row">
-    <input type="checkbox" id="chk-only-empty" checked />
-    <label for="chk-only-empty" style="text-transform:none; font-size:12px; margin:0">
-      Chỉ sinh cho ô chưa có nhận xét
-    </label>
-  </div>
-
-  <div id="progress"></div>
-
-  <div id="student-list">
-    <div class="empty-state">
-      Mở trang Sổ nhận xét trên vnEdu<br>rồi bấm "Đọc từ trang"
+  <!-- Panel: Nhận xét -->
+  <div id="panel-nhanxet" style="display:none">
+    <div class="action-bar">
+      <button class="btn btn-primary" id="btn-generate-all" disabled>✨ Sinh nhận xét</button>
+      <button class="btn btn-success" id="btn-fill-all" disabled>⬇️ Điền vào trang</button>
     </div>
+    <div class="subject-info" id="subject-info"></div>
+    <div class="options-row">
+      <input type="checkbox" id="chk-only-empty" checked />
+      <label for="chk-only-empty" style="text-transform:none; font-size:12px; margin:0">Chỉ sinh cho ô chưa có nhận xét</label>
+    </div>
+    <div id="progress"></div>
+    <div id="student-list"></div>
   </div>
 
-</div>
-
-<!-- TAB: THONG KE SO CHU NHIEM -->
-<div class="panel" id="tab-thongke">
-
-  <div class="action-bar">
-    <button class="btn btn-secondary" id="btn-read-tongket">🔍 Đọc Điểm TK</button>
-    <button class="btn btn-success" id="btn-fill-chunhiem" disabled>⬇️ Điền Sổ CN</button>
+  <!-- Panel: Sổ chủ nhiệm -->
+  <div id="panel-chunhiem" style="display:none">
+    <div class="action-bar">
+      <button class="btn btn-success" id="btn-fill-chunhiem" disabled>⬇️ Điền Sổ CN</button>
+    </div>
+    <div class="subject-info" id="tongket-info"></div>
+    <div id="thongke-preview"><div id="thongke-content"></div></div>
+    <div id="thongke-guide">✅ Đã tính xong. Mở trang <b>"Quản lý sổ chủ nhiệm"</b> rồi bấm <b>Điền Sổ CN</b>.</div>
   </div>
 
-  <div class="subject-info" id="tongket-info">Mở trang "Điểm tổng kết" rồi bấm Đọc</div>
-
-  <div id="thongke-preview" style="display:none; background:white; border:1px solid #dde3ed; border-radius:6px; padding:10px; font-size:12px; max-height:360px; overflow-y:auto">
-    <div id="thongke-content"></div>
-  </div>
-
-  <div style="margin-top:10px; padding:8px; background:#e8f5e9; border-radius:6px; font-size:11px; color:#2e7d32; line-height:1.6; display:none" id="thongke-guide">
-    ✅ Đã tính xong. Mở trang <b>"Quản lý sổ chủ nhiệm"</b> rồi bấm <b>Điền Sổ CN</b>.
-  </div>
-
-</div>
-
-<!-- TAB: SETTINGS -->
-<div class="panel" id="tab-settings">
-
-  <div class="form-group">
-    <label>Selector tùy chỉnh (nếu cần)</label>
-    <input type="text" id="custom-selector" placeholder="textarea.t0_ck2, ..." />
-    <div class="hint">Để trống để dùng selector mặc định</div>
-  </div>
-
-  <button class="btn btn-secondary btn-full" id="btn-save-selector">💾 Lưu</button>
-
-  <div style="margin-top:14px; padding:10px; background:#fff3e0; border-radius:6px; font-size:11px; color:#e65100; line-height:1.6">
-    ⚠️ Gemini free: 15 request/phút. Extension tự chờ 65 giây sau mỗi 14 học sinh.
+  <!-- Panel: không nhận diện được -->
+  <div id="panel-unknown">
+    <div class="empty-state">Mở trang <b>Sổ nhận xét</b> hoặc <b>Điểm tổng kết</b> trên vnEdu</div>
   </div>
 
 </div>

@@ -2,167 +2,244 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <title>VnEdu Nhận Xét AI</title>
+  <title>VnEdu AI</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      width: 420px;
-      min-width: 180px;
-      transition: width 0.3s;
+    html, body {
+      width: 100%;
+      height: 100%;
       font-family: 'Segoe UI', sans-serif;
-      font-size: 13px;
-      background: #f5f7fa;
+      font-size: 16px;
+      background: #f0f4f8;
       color: #1a1a2e;
     }
 
     header {
       background: linear-gradient(135deg, #1565c0, #0d47a1);
       color: white;
-      padding: 10px 14px;
+      padding: 12px 18px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    header h1 { font-size: 14px; font-weight: 600; }
-    header span { font-size: 11px; opacity: 0.8; }
-
-    .main { padding: 12px; }
-
-    .action-bar {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 10px;
-      align-items: center;
-    }
-
-    .subject-info {
+    header h1 { font-size: 17px; font-weight: 700; flex: 1; }
+    #page-label {
       font-size: 12px;
-      color: #555;
-      background: #e8f0fe;
-      padding: 5px 10px;
+      opacity: 0.85;
+      background: rgba(255,255,255,0.2);
+      padding: 3px 11px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+    #btn-reload {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px 6px;
+      opacity: 0.8;
       border-radius: 6px;
-      margin-bottom: 10px;
-      min-height: 26px;
+    }
+    #btn-reload:hover { opacity: 1; background: rgba(255,255,255,0.18); }
+
+    /* ── Panel wrapper căn giữa ── */
+    .main {
+      padding: 20px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: calc(100vh - 52px);
+      justify-content: center;
+    }
+
+    .panel-inner {
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .info-box {
+      width: 100%;
+      font-size: 14px;
+      color: #444;
+      background: #e8f0fe;
+      padding: 10px 14px;
+      border-radius: 10px;
+      line-height: 1.5;
+      font-weight: 500;
+      text-align: left;
     }
 
     .btn {
-      padding: 7px 12px;
+      width: 100%;
+      padding: 14px 20px;
       border: none;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
+      border-radius: 24px;
+      font-size: 16px;
+      font-weight: 700;
       cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
+      transition: filter 0.15s, opacity 0.15s;
+      letter-spacing: 0.3px;
     }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-primary { background: linear-gradient(135deg, #1565c0, #0d47a1); color: white; }
-    .btn-primary:hover:not(:disabled) { opacity: 0.9; }
-    .btn-success { background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; }
-    .btn-success:hover:not(:disabled) { opacity: 0.9; }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-primary { background: linear-gradient(135deg, #1976d2, #1565c0); color: white; box-shadow: 0 3px 10px rgba(21,101,192,0.35); }
+    .btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+    .btn-success { background: linear-gradient(135deg, #388e3c, #2e7d32); color: white; box-shadow: 0 3px 10px rgba(46,125,50,0.35); }
+    .btn-success:hover:not(:disabled) { filter: brightness(1.08); }
     .btn-secondary { background: #e8f0fe; color: #1565c0; }
     .btn-secondary:hover:not(:disabled) { background: #d2e3fc; }
 
     .options-row {
       display: flex;
       align-items: center;
-      gap: 6px;
-      margin-bottom: 8px;
-      font-size: 12px;
+      gap: 8px;
+      font-size: 14px;
       color: #555;
     }
+    .options-row input[type=checkbox] { width: 16px; height: 16px; accent-color: #1565c0; cursor: pointer; }
 
-    #progress {
+    .progress-box {
       display: none;
-      font-size: 12px;
+      width: 100%;
+      font-size: 14px;
       color: #1565c0;
       background: #e8f0fe;
-      padding: 7px 10px;
-      border-radius: 6px;
-      margin-bottom: 8px;
-    }
-
-    #student-list {
-      max-height: 340px;
-      overflow-y: auto;
-      border: 1px solid #dde3ed;
-      border-radius: 6px;
-      background: white;
-    }
-
-    .student-row {
-      padding: 8px 10px;
-      border-bottom: 1px solid #f0f4f8;
-      transition: background 0.15s;
-    }
-    .student-row:last-child { border-bottom: none; }
-    .student-row.done { background: #f1f8e9; }
-
-    .student-name { font-weight: 600; font-size: 13px; }
-    .student-meta {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      margin-top: 3px;
-      flex-wrap: wrap;
-    }
-
-    .xl-badge, .badge-existing, .badge-done {
-      font-size: 10px;
-      padding: 1px 6px;
+      padding: 10px 14px;
       border-radius: 10px;
+      font-weight: 500;
+      text-align: center;
     }
-    .xl-badge { background: #e3f2fd; color: #1565c0; }
-    .badge-existing { background: #fff3e0; color: #e65100; }
-    .badge-done { background: #e8f5e9; color: #2e7d32; }
 
-    .preview-text {
-      font-size: 11px;
-      color: #444;
-      margin-top: 5px;
-      padding: 5px 8px;
-      background: #f8f9fa;
-      border-left: 3px solid #1565c0;
-      border-radius: 0 4px 4px 0;
-      line-height: 1.5;
+    .preview-sample {
+      display: none;
+      width: 100%;
+      margin-top: 4px;
+    }
+    .preview-sample-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+      text-align: left;
+    }
+    .preview-sample-text {
+      font-size: 14px;
+      color: #1565c0;
+      background: white;
+      border: 1px solid #c5d8f8;
+      border-left: 4px solid #1565c0;
+      padding: 10px 14px;
+      border-radius: 0 10px 10px 0;
+      line-height: 1.6;
+      font-style: italic;
     }
 
     .empty-state {
       text-align: center;
-      padding: 30px 20px;
+      padding: 40px 20px;
       color: #aaa;
-      font-size: 12px;
+      font-size: 15px;
+      line-height: 1.9;
     }
 
-    /* Thống kê sổ CN */
+    /* Sổ CN */
+    .chunhiem-inner {
+      width: 100%;
+    }
     #thongke-preview {
       display: none;
       background: white;
       border: 1px solid #dde3ed;
-      border-radius: 6px;
+      border-radius: 10px;
       padding: 10px;
-      font-size: 12px;
-      max-height: 380px;
+      font-size: 13px;
+      max-height: calc(100vh - 200px);
       overflow-y: auto;
+      margin-top: 10px;
     }
-
     #thongke-guide {
       display: none;
       margin-top: 10px;
-      padding: 8px;
+      padding: 10px 14px;
       background: #e8f5e9;
-      border-radius: 6px;
-      font-size: 11px;
+      border-radius: 10px;
+      font-size: 13px;
       color: #2e7d32;
       line-height: 1.6;
     }
 
+    /* NLPC */
+    .nlpc-inner {
+      width: 100%;
+    }
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px 8px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      background: white;
+      border: 1px solid #dde3ed;
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .field-grid label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      color: #444;
+      white-space: nowrap;
+    }
+    .field-grid input[type=checkbox] { width: 13px; height: 13px; cursor: pointer; accent-color: #1565c0; }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 6px;
+    }
+
+    .scroll-list {
+      max-height: calc(100vh - 320px);
+      overflow-y: auto;
+      border: 1px solid #dde3ed;
+      border-radius: 10px;
+      background: white;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      width: 100%;
+    }
+    .student-row {
+      padding: 9px 14px;
+      border-bottom: 1px solid #f0f4f8;
+      transition: background 0.1s;
+      cursor: pointer;
+    }
+    .student-row:last-child { border-bottom: none; }
+    .student-row.done { background: #f1f8e9; }
+    .student-row:hover { background: #f5f8ff; }
+    .student-name { font-weight: 600; font-size: 15px; }
+    .student-meta { display: flex; gap: 5px; align-items: center; margin-top: 3px; flex-wrap: wrap; }
+    .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+    .badge-xl  { background: #e3f2fd; color: #1565c0; }
+    .badge-has { background: #fff3e0; color: #e65100; }
+    .badge-ok  { background: #e8f5e9; color: #2e7d32; }
+
     .toast {
-      position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
-      background: #323232; color: white; padding: 6px 16px;
-      border-radius: 20px; font-size: 12px; opacity: 0;
+      position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+      background: #323232; color: white; padding: 8px 20px;
+      border-radius: 20px; font-size: 14px; opacity: 0;
       transition: opacity 0.3s; pointer-events: none; white-space: nowrap;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.25);
     }
     .toast.show { opacity: 1; }
   </style>
@@ -170,48 +247,97 @@
 <body>
 
 <header>
-  <div>
-    <h1>📝 VnEdu Nhận Xét AI</h1>
-    <span id="page-label">Đang nhận diện trang...</span>
-  </div>
-  <button class="btn btn-secondary" id="btn-reload" style="margin-left:auto">🔄</button>
+  <h1>📝 VnEdu AI</h1>
+  <span id="page-label"></span>
+  <button id="btn-reload" title="Tải lại">🔄</button>
 </header>
 
 <div class="main">
 
   <!-- Panel: Nhận xét -->
-  <div id="panel-nhanxet" style="display:none">
-    <div class="action-bar">
-      <button class="btn btn-primary" id="btn-generate-all" disabled>✨ Sinh nhận xét</button>
-      <button class="btn btn-success" id="btn-fill-all" disabled>⬇️ Điền vào trang</button>
+  <div id="panel-nhanxet" style="display:none; width:100%">
+    <div class="panel-inner">
+      <div class="info-box" id="subject-info"></div>
+      <button class="btn btn-success" id="btn-fill-all" disabled>⬇️ Điền nhận xét</button>
+      <button class="btn btn-secondary" id="btn-generate-all" disabled>🔄 Sinh lại</button>
+      <div class="options-row">
+        <input type="checkbox" id="chk-only-empty" checked />
+        <label for="chk-only-empty">Chỉ điền ô chưa có nhận xét</label>
+      </div>
+      <div class="progress-box" id="progress"></div>
+      <div class="preview-sample" id="preview-sample">
+        <div class="preview-sample-label">📋 Mẫu nhận xét</div>
+        <div class="preview-sample-text" id="preview-sample-text"></div>
+      </div>
+      <div id="student-list" style="display:none"></div>
     </div>
-    <div class="subject-info" id="subject-info"></div>
-    <div class="options-row">
-      <input type="checkbox" id="chk-only-empty" checked />
-      <label for="chk-only-empty" style="text-transform:none; font-size:12px; margin:0">Chỉ sinh cho ô chưa có nhận xét</label>
-    </div>
-    <div id="progress"></div>
-    <div id="student-list"></div>
   </div>
 
   <!-- Panel: Sổ chủ nhiệm -->
-  <div id="panel-chunhiem" style="display:none">
-    <div class="action-bar">
+  <div id="panel-chunhiem" style="display:none; width:100%">
+    <div class="panel-inner">
+      <div class="info-box" id="tongket-info"></div>
       <button class="btn btn-success" id="btn-fill-chunhiem" disabled>⬇️ Điền Sổ CN</button>
+      <div class="chunhiem-inner">
+        <div id="thongke-preview"><div id="thongke-content"></div></div>
+        <div id="thongke-guide">✅ Đã tính xong. Mở <b>Quản lý sổ chủ nhiệm</b> rồi bấm <b>Điền Sổ CN</b>.</div>
+      </div>
     </div>
-    <div class="subject-info" id="tongket-info"></div>
-    <div id="thongke-preview"><div id="thongke-content"></div></div>
-    <div id="thongke-guide">✅ Đã tính xong. Mở trang <b>"Quản lý sổ chủ nhiệm"</b> rồi bấm <b>Điền Sổ CN</b>.</div>
+  </div>
+
+  <!-- Panel: Phẩm chất - Năng lực -->
+  <div id="panel-phamchat" style="display:none; width:100%">
+    <!-- Lock screen -->
+    <div id="nlpc-lock" style="display:none">
+      <div class="panel-inner">
+        <div style="text-align:center;font-size:40px;margin-bottom:8px">🔒</div>
+        <div style="text-align:center;font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:6px">Tính năng trả phí</div>
+        <div style="text-align:center;font-size:14px;color:#666;margin-bottom:16px">Nhập key để sử dụng tính năng<br>Phẩm chất - Năng lực</div>
+        <input id="license-input" type="text" placeholder="Nhập key (VD: VNAI-XXXX-XXXX)" style="width:100%;padding:12px 14px;border:2px solid #dde3ed;border-radius:12px;font-size:15px;outline:none;text-align:center;letter-spacing:1px" />
+        <button class="btn btn-primary" id="btn-activate" style="margin-top:4px">🔓 Kích hoạt</button>
+        <div id="license-msg" style="font-size:13px;text-align:center;min-height:20px"></div>
+      </div>
+    </div>
+    <!-- Main content -->
+    <div id="nlpc-content">
+      <div class="info-box" id="nlpc-info">Chọn học sinh để sinh nhận xét</div>
+      <button class="btn btn-primary" id="btn-nlpc-single" disabled>✨ Sinh HS này</button>
+      <button class="btn btn-success" id="btn-nlpc-batch" disabled>⚡ Sinh cả lớp</button>
+      <div class="nlpc-inner">
+        <div class="section-label">Chọn ô cần sinh:</div>
+        <div class="field-grid">
+          <label><input type="checkbox" class="nlpc-chk" value="nl_chung" checked> NL chung</label>
+          <label><input type="checkbox" class="nlpc-chk" value="tu_chu" checked> Tự chủ</label>
+          <label><input type="checkbox" class="nlpc-chk" value="giao_tiep" checked> Giao tiếp</label>
+          <label><input type="checkbox" class="nlpc-chk" value="gqvd" checked> GQVĐ</label>
+          <label><input type="checkbox" class="nlpc-chk" value="ngon_ngu" checked> Ngôn ngữ</label>
+          <label><input type="checkbox" class="nlpc-chk" value="tinh_toan" checked> Tính toán</label>
+          <label><input type="checkbox" class="nlpc-chk" value="khoa_hoc" checked> Khoa học</label>
+          <label><input type="checkbox" class="nlpc-chk" value="tham_mi" checked> Thẩm mĩ</label>
+          <label><input type="checkbox" class="nlpc-chk" value="the_chat" checked> Thể chất</label>
+          <label><input type="checkbox" class="nlpc-chk" value="nl_dac_thu" checked> NL đặc thù</label>
+          <label><input type="checkbox" class="nlpc-chk" value="pc_chung" checked> PC chung</label>
+          <label><input type="checkbox" class="nlpc-chk" value="yeu_nuoc" checked> Yêu nước</label>
+          <label><input type="checkbox" class="nlpc-chk" value="nhan_ai" checked> Nhân ái</label>
+          <label><input type="checkbox" class="nlpc-chk" value="cham_chi" checked> Chăm chỉ</label>
+          <label><input type="checkbox" class="nlpc-chk" value="trung_thuc" checked> Trung thực</label>
+          <label><input type="checkbox" class="nlpc-chk" value="trach_nhiem" checked> Trách nhiệm</label>
+        </div>
+        <div class="progress-box" id="nlpc-progress"></div>
+        <div class="scroll-list" id="nlpc-student-list"></div>
+      </div>
+    </div> <!-- end nlpc-content -->
   </div>
 
   <!-- Panel: không nhận diện được -->
-  <div id="panel-unknown">
-    <div class="empty-state">Mở trang <b>Sổ nhận xét</b> hoặc <b>Điểm tổng kết</b> trên vnEdu</div>
+  <div id="panel-unknown" style="width:100%">
+    <div class="empty-state">Mở trang <b>Nhập sổ điểm</b> hoặc<br><b>Phẩm chất - Năng lực</b> trên vnEdu</div>
   </div>
 
 </div>
 
 <div class="toast" id="toast"></div>
+<script src="license.js"></script>
 <script src="popup.js"></script>
 </body>
 </html>

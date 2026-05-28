@@ -2,17 +2,25 @@
 
 // ── Detect trang hiện tại ────────────────────────────
 function detectPage() {
-  const title = document.querySelector('.x-window-header-text')?.textContent?.trim() || '';
   const url = window.location.href;
+  if (url.includes('tong_ket')) return 'diem_tong_ket';
 
-  if (title.includes('Điểm tổng kết') || url.includes('tong_ket')) return 'diem_tong_ket';
+  // Chỉ xét window đang active (không bị hidden)
+  const activeWin = [...document.querySelectorAll('.x-layer.x-window')]
+    .find(w => w.classList.contains('ux-desktop-active-win') && w.style.visibility !== 'hidden');
 
-  // Detect Sổ CN theo DOM — có class tong_ket_nam và input NL/PC
-  if (document.querySelector('.tong_ket_nam') ||
-      document.querySelector('input[name="nl_tcth"]') ||
-      title.includes('chủ nhiệm') || title.includes('Chủ nhiệm')) return 'so_chu_nhiem';
+  if (!activeWin) return 'unknown';
 
-  if (title.includes('Sổ nhận xét') || title.includes('Sổ điểm')) return 'so_nhan_xet';
+  if (activeWin.querySelector('#nlchung, #tu_chu, #yeu_nuoc, #pcchung')) return 'pham_chat_nang_luc';
+  if (activeWin.querySelector('.tong_ket_nam, input[name="nl_tcth"]')) return 'so_chu_nhiem';
+  if (activeWin.querySelector('img.btGVSendSMS, textarea[t]')) return 'so_nhan_xet';
+
+  const title = [...activeWin.querySelectorAll('.x-window-header-text')]
+    .map(el => el.textContent.trim()).find(t => t.length > 0) || '';
+
+  if (title.includes('Điểm tổng kết')) return 'diem_tong_ket';
+  if (title.includes('chủ nhiệm') || title.includes('Chủ nhiệm')) return 'so_chu_nhiem';
+  if (title.includes('Phẩm chất') || title.includes('ghi học bạ')) return 'pham_chat_nang_luc';
   return 'unknown';
 }
 
@@ -60,12 +68,31 @@ function readStudents() {
 
 // ── Lấy thông tin môn học từ header bảng ─────────────
 function getSubjectInfo() {
-  const text = document.body.innerText;
-  const monMatch = text.match(/Môn học:\s*([^\n]+)/);
-  const lopMatch = text.match(/Lớp:\s*([^\s]+)/);
+  const activeWin = [...document.querySelectorAll('.x-layer.x-window')]
+    .find(w => w.classList.contains('ux-desktop-active-win') && w.style.visibility !== 'hidden')
+    || document.body;
+
+  const getLabelInput = (labelText) => {
+    const label = [...activeWin.querySelectorAll('label.x-form-item-label')]
+      .find(l => l.textContent.trim().startsWith(labelText));
+    return label?.nextElementSibling?.querySelector('input')?.value?.trim() || '';
+  };
+
+  const khoi = getLabelInput('Khối');
+  const mon = getLabelInput('Môn').replace(/\s*-\s*Học kỳ.*$/i, '').trim();
+  const hocKy = getLabelInput('Học kỳ');
+  const lop = getLabelInput('Lớp');
+
+  // Đọc kỳ (giữa kỳ/cuối kỳ) từ input có id chứa cboThang
+  const ky = activeWin.querySelector('[id*="cboThang"] input')?.value?.trim() || '';
+
   return {
-    monHoc: monMatch ? monMatch[1].trim().replace(/\s*-\s*Học kỳ.*$/i, '').trim() : 'môn học',
-    lop: lopMatch ? lopMatch[1].trim() : ''
+    monHoc: mon || 'môn học',
+    lop,
+    khoi,
+    hocKy,
+    ky,
+    label: `Khối: ${khoi} - Môn: ${mon} - Học kỳ: ${hocKy}`
   };
 }
 
@@ -285,6 +312,111 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     sendResponse({ success: ok });
   }
 
+  if (msg.type === 'READ_NLPC_STUDENTS') {
+    const students = [];
+    document.querySelectorAll('.x-grid-row').forEach((row, i) => {
+      const hoTen = row.querySelector('td:nth-child(2) .x-grid-cell-inner')?.textContent?.trim();
+      const hocSinhId = row.querySelector('td:nth-child(3) .x-grid-cell-inner')?.textContent?.trim();
+      if (!hoTen || !hocSinhId) return;
+      students.push({ index: i, hoTen, hocSinhId });
+    });
+    sendResponse({ students });
+  }
+
+  if (msg.type === 'NLPC_CLICK_STUDENT') {
+    const rows = document.querySelectorAll('.x-grid-row');
+    const row = rows[msg.index];
+    if (!row) { sendResponse({ ok: false }); return; }
+    row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    row.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    row.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    setTimeout(() => {
+      const xepLoaiMap = {};
+      const domMap = {
+        nlchung: 'nl_chung', tu_chu: 'tu_chu', giao_tiep_hop_tac: 'giao_tiep',
+        gqvd: 'gqvd', dac_thu: 'nl_dac_thu', ngon_ngu: 'ngon_ngu',
+        tinh_toan: 'tinh_toan', khoa_hoc: 'khoa_hoc', tham_mi: 'tham_mi',
+        the_chat: 'the_chat', pcchung: 'pc_chung', yeu_nuoc: 'yeu_nuoc',
+        nhan_ai: 'nhan_ai', cham_chi: 'cham_chi', trung_thuc: 'trung_thuc',
+        trach_nhiem: 'trach_nhiem'
+      };
+      Object.entries(domMap).forEach(([domId, field]) => {
+        const xl = document.querySelector(`#${domId} label b`)?.textContent?.trim() || '';
+        xepLoaiMap[field] = xl;
+      });
+      sendResponse({ ok: true, xepLoaiMap });
+    }, 500);
+    return true;
+  }
+
+  if (msg.type === 'NLPC_FILL_ONE') {
+    (async () => {
+    const nameMap = {
+      nl_chung: '3_1', tu_chu: '1_4', giao_tiep: '1_5', gqvd: '1_6',
+      ngon_ngu: '1_7', tinh_toan: '1_8', khoa_hoc: '1_9', tham_mi: '1_12',
+      the_chat: '1_13', nl_dac_thu: '3_3', pc_chung: '3_2',
+      yeu_nuoc: '2_6', nhan_ai: '2_7', cham_chi: '2_8',
+      trung_thuc: '2_9', trach_nhiem: '2_10'
+    };
+    let filled = 0;
+    Object.entries(msg.data).forEach(([field, text]) => {
+      if (!text) return;
+      const name = nameMap[field];
+      const ta = document.querySelector(`textarea[name="${name}"]`);
+      if (!ta) return;
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+      if (setter) setter.call(ta, text); else ta.value = text;
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+      ta.dispatchEvent(new Event('change', { bubbles: true }));
+      filled++;
+    });
+    await new Promise(resolve => {
+      const mb = document.getElementById('messagebox-1001');
+      if (!mb) { 
+        document.querySelector('[id*="btLuu"] button')?.click();
+        setTimeout(resolve, 1000);
+        return;
+      }
+
+      const currentLeft = parseInt(mb.style.left);
+      
+      const watchForShow = () => {
+        const obs = new MutationObserver(() => {
+          const left = parseInt(mb.style.left);
+          if (!isNaN(left) && left > 0) {
+            obs.disconnect();
+            setTimeout(() => {
+              document.getElementById('button-1009')?.querySelector('button')?.click();
+              resolve();
+            }, 150);
+          }
+        });
+        obs.observe(mb, { attributes: true, attributeFilter: ['style'] });
+        setTimeout(() => { obs.disconnect(); resolve(); }, 6000);
+      };
+
+      if (currentLeft > 0) {
+        // Đang hiện, đợi nó ẩn đi rồi mới watch lại
+        const obsHide = new MutationObserver(() => {
+          const left = parseInt(mb.style.left);
+          if (isNaN(left) || left < 0) {
+            obsHide.disconnect();
+            document.querySelector('[id*="btLuu"] button')?.click();
+            watchForShow();
+          }
+        });
+        obsHide.observe(mb, { attributes: true, attributeFilter: ['style'] });
+        setTimeout(() => { obsHide.disconnect(); document.querySelector('[id*="btLuu"] button')?.click(); watchForShow(); }, 2000);
+      } else {
+        document.querySelector('[id*="btLuu"] button')?.click();
+        watchForShow();
+      }
+    });
+    sendResponse({ success: true, filled });
+    })();
+    return true;
+  }
+
   if (msg.type === 'FILL_ALL') {
     let count = 0;
     msg.comments.forEach(c => {
@@ -295,3 +427,82 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   return true;
 });
+
+// ── Detect click → notify popup nếu page thay đổi ────────
+(function watchPageChange() {
+  let lastPage = null;
+  let lastKhoi = null;
+  let debounceTimer = null;
+
+  function notifyIfChanged() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      const page = detectPage();
+      const khoi = document.querySelector('label.x-form-item-label')?.nextElementSibling?.querySelector('input')?.value || '';
+      if (page !== lastPage || khoi !== lastKhoi) {
+        lastPage = page;
+        lastKhoi = khoi;
+        try {
+          chrome.runtime.sendMessage({ type: 'PAGE_CHANGED' });
+        } catch {
+          observer.disconnect();
+        }
+      }
+    }, 400);
+  }
+
+  // Chỉ observe các desktop window — detect khi active win thay đổi
+  const observer = new MutationObserver(() => notifyIfChanged());
+
+  function observeWindows() {
+    document.querySelectorAll('.x-layer.x-window').forEach(win => {
+      if (!win._aiObserved) {
+        win._aiObserved = true;
+        observer.observe(win, { attributes: true, attributeFilter: ['class', 'style'] });
+      }
+    });
+  }
+
+  // Observe body childList để bắt window mới thêm vào
+  const bodyObserver = new MutationObserver(() => {
+    observeWindows();
+    notifyIfChanged();
+  });
+  bodyObserver.observe(document.body, { childList: true });
+
+  observeWindows();
+  document.addEventListener('click', () => notifyIfChanged(), true);
+})();
+
+// ── Floating button mở side panel ────────────────────
+(function injectFloatingBtn() {
+  if (document.getElementById('vnedu-ai-btn')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'vnedu-ai-btn';
+  btn.textContent = '🤖 AI';
+  Object.assign(btn.style, {
+    position: 'fixed', bottom: '24px', right: '24px', zIndex: '999999',
+    background: '#1a73e8', color: '#fff', border: 'none', borderRadius: '24px',
+    padding: '10px 18px', fontSize: '14px', fontWeight: 'bold',
+    cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+  });
+
+  let panelOpen = false;
+
+  btn.addEventListener('click', () => {
+    if (panelOpen) {
+      chrome.runtime.sendMessage({ type: 'CLOSE_SIDE_PANEL' });
+      btn.textContent = '🤖 AI';
+      Object.assign(btn.style, { background: '#1a73e8' });
+      panelOpen = false;
+    } else {
+      chrome.runtime.sendMessage({ type: 'OPEN_SIDE_PANEL' });
+      btn.textContent = '✖ Đóng AI';
+      Object.assign(btn.style, { background: '#c62828' });
+      panelOpen = true;
+    }
+  });
+
+  document.body.appendChild(btn);
+})();

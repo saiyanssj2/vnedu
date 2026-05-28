@@ -1,12 +1,19 @@
-importScripts('kho/lop1.js', 'kho/lop2.js', 'kho/lop3.js', 'kho/lop4.js', 'kho/lop5.js');
+importScripts('kho/lop1.js', 'kho/lop2.js', 'kho/lop3.js', 'kho/lop4.js', 'kho/lop5.js', 'kho/nlpc_chung.js');
+
+// Disable side panel by default, only enable on vnedu.vn tabs
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+});
 
 // ── Keep-alive ────────────────────────────────────────
 chrome.alarms.create('keepalive', { periodInMinutes: 0.3 });
 chrome.alarms.onAlarm.addListener(() => {});
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url?.includes('vnedu.vn')) {
-    chrome.sidePanel.open({ tabId });
+  if (tab.url?.includes('vnedu.vn')) {
+    chrome.sidePanel.setOptions({ tabId, path: 'popup.html', enabled: true });
+  } else if (changeInfo.status === 'complete' && tab.url) {
+    chrome.sidePanel.setOptions({ tabId, enabled: false });
   }
 });
 
@@ -14,11 +21,54 @@ chrome.action.onClicked.addListener(tab => {
   chrome.sidePanel.open({ tabId: tab.id });
 });
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'OPEN_SIDE_PANEL') {
+    const tabId = sender.tab.id;
+    chrome.storage.local.set({ activeTabId: tabId });
+    chrome.sidePanel.setOptions({ tabId, path: 'popup.html', enabled: true });
+    chrome.sidePanel.open({ tabId });
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  if (msg.type === 'CLOSE_SIDE_PANEL') {
+    const tabId = sender.tab.id;
+    chrome.sidePanel.setOptions({ tabId, enabled: false });
+    setTimeout(() => chrome.sidePanel.setOptions({ tabId, path: 'popup.html', enabled: true }), 300);
+    sendResponse({ ok: true });
+    return false;
+  }
+
   if (msg.type === 'GEMINI_GENERATE_BATCH') {
     runBatch(msg.targets, msg.monHoc, msg.lop).catch(console.error);
     sendResponse({ started: true });
     return false;
+  }
+
+  if (msg.type === 'NLPC_GENERATE') {
+    chrome.storage.local.get('recentUsed').then(({ recentUsed: storedRecent }) => {
+      const recentMap = storedRecent || {};
+      const result = {};
+      // Các ô không có xepLoai nhưng vẫn cần sinh
+      const alwaysGenerate = ['nl_chung', 'pc_chung', 'nl_dac_thu'];
+      for (const field of msg.fields) {
+        const xepLoai = (msg.xepLoaiMap?.[field] || '').trim();
+        if (!xepLoai && !alwaysGenerate.includes(field)) continue;
+        const mucKey = xepLoai === 'T' ? 'T' : (xepLoai === 'C' ? 'C' : 'D');
+        const fieldData = KHO_NLPC[field];
+        const list = fieldData?.[mucKey] || fieldData?.D || [];
+        if (!list.length) { result[field] = ''; continue; }
+        const key = `${field}_${mucKey}`;
+        const used = recentMap[key] || [];
+        const pool = list.filter(t => !used.includes(t));
+        const pick = (pool.length ? pool : list)[Math.floor(Math.random() * (pool.length || list.length))];
+        recentMap[key] = [...used, pick].slice(-(list.length - 1));
+        result[field] = pick;
+      }
+      chrome.storage.local.set({ recentUsed: recentMap });
+      sendResponse({ result });
+    });
+    return true;
   }
 });
 

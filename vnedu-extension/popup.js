@@ -13,6 +13,18 @@ let generated = {};
 let cachedThongKe = null;
 
 // ── Helper ────────────────────────────────────────────
+async function getActiveTab() {
+  const { activeTabId } = await chrome.storage.local.get('activeTabId');
+  if (activeTabId) {
+    try {
+      const tab = await chrome.tabs.get(activeTabId);
+      if (tab?.url?.includes('vnedu.vn')) return tab;
+    } catch {}
+  }
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tab;
+}
+
 async function sendToTab(tabId, msg) {
   try {
     return await chrome.tabs.sendMessage(tabId, msg);
@@ -24,15 +36,14 @@ async function sendToTab(tabId, msg) {
 }
 
 function showPanel(name) {
-  ['nhanxet', 'chunhiem', 'unknown'].forEach(p =>
+  ['nhanxet', 'chunhiem', 'phamchat', 'unknown'].forEach(p =>
     document.getElementById(`panel-${p}`).style.display = p === name ? 'block' : 'none'
   );
-  document.body.style.width = name === 'unknown' ? '200px' : '420px';
 }
 
 // ── Auto-detect và đọc dữ liệu ───────────────────────
 async function autoRead() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = await getActiveTab();
   if (!tab?.url?.includes('vnedu.vn')) {
     document.getElementById('page-label').textContent = 'Hãy mở trang vnedu.vn';
     showPanel('unknown');
@@ -42,10 +53,20 @@ async function autoRead() {
   try {
     const { page } = await sendToTab(tab.id, { type: 'DETECT_PAGE' });
 
-    if (page === 'so_nhan_xet' || page === 'unknown') {
+    if (page === 'so_nhan_xet') {
       await readNhanXet(tab.id);
+    } else if (page === 'unknown') {
+      document.getElementById('page-label').textContent = '';
+      showPanel('unknown');
     } else if (page === 'diem_tong_ket') {
       await readDiemTongKet(tab.id);
+    } else if (page === 'pham_chat_nang_luc') {
+      document.getElementById('page-label').textContent = 'Phẩm chất - Năng lực';
+      const licensed = await checkLicense();
+      document.getElementById('nlpc-lock').style.display = licensed ? 'none' : 'block';
+      document.getElementById('nlpc-content').style.display = licensed ? 'block' : 'none';
+      if (licensed) await readNlpc(tab.id);
+      showPanel('phamchat');
     } else if (page === 'so_chu_nhiem') {
       document.getElementById('page-label').textContent = 'Sổ chủ nhiệm';
       document.getElementById('tongket-info').textContent = cachedThongKe
@@ -68,9 +89,10 @@ async function readNhanXet(tabId) {
   generated = {};
   document.getElementById('btn-fill-all').disabled = true;
   document.getElementById('progress').style.display = 'none';
+  document.getElementById('preview-sample').style.display = 'none';
 
   if (students.length === 0) {
-    document.getElementById('page-label').textContent = 'Sổ nhận xét';
+    document.getElementById('page-label').textContent = 'Nhập sổ điểm';
     document.getElementById('subject-info').textContent = 'Không tìm thấy danh sách học sinh';
     document.getElementById('student-list').innerHTML = '<div class="empty-state">Không tìm thấy học sinh trên trang này</div>';
     document.getElementById('btn-generate-all').disabled = true;
@@ -78,14 +100,43 @@ async function readNhanXet(tabId) {
     return;
   }
 
-  document.getElementById('page-label').textContent = 'Sổ nhận xét';
+  document.getElementById('page-label').textContent = 'Nhập sổ điểm';
   document.getElementById('btn-generate-all').disabled = false;
   renderStudentList();
   showPanel('nhanxet');
 
+  // Tự sinh mẫu 1 nhận xét để preview
+  autoGenerateSample();
+
   // Resume nếu batch đang chạy
   const { batchStatus } = await chrome.storage.local.get('batchStatus');
   if (batchStatus?.running) resumeBatch();
+}
+
+async function autoGenerateSample() {
+  const target = students.find(s => !s.hasComment) || students[0];
+  if (!target) return;
+  const res = await chrome.runtime.sendMessage({
+    type: 'GEMINI_GENERATE_BATCH',
+    targets: [target],
+    monHoc: subjectInfo.monHoc || 'môn học',
+    lop: subjectInfo.lop
+  });
+  // Chờ batch xong rồi lấy kết quả
+  const poll = setInterval(async () => {
+    const { batchStatus: bs } = await chrome.storage.local.get('batchStatus');
+    if (!bs || bs.running) return;
+    clearInterval(poll);
+    const sample = Object.values(bs.generated || {})[0];
+    if (sample) {
+      const box = document.getElementById('preview-sample');
+        const textEl = document.getElementById('preview-sample-text');
+        if (textEl) textEl.textContent = sample;
+        box.style.display = 'block';
+    }
+    Object.assign(generated, bs.generated || {});
+    document.getElementById('btn-fill-all').disabled = false;
+  }, 500);
 }
 
 async function readDiemTongKet(tabId) {
@@ -109,8 +160,11 @@ async function readDiemTongKet(tabId) {
 // ── Render nhận xét ───────────────────────────────────
 function renderStudentList() {
   const chuaNx = students.filter(s => !s.hasComment).length;
-  document.getElementById('subject-info').textContent =
-    `${subjectInfo.monHoc || ''} — Lớp ${subjectInfo.lop || ''} | Chưa NX: ${chuaNx}/${students.length}`;
+  const info = subjectInfo;
+  document.getElementById('subject-info').innerHTML =
+    `<div style="font-size:16px;font-weight:700;color:#1565c0;text-align:center;margin-bottom:5px">${info.monHoc || ''} &nbsp;•&nbsp; ${info.hocKy || ''}</div>` +
+    `<div style="font-size:13px;color:#666;text-align:center;margin-bottom:4px">${info.khoi || ''} &nbsp;•&nbsp; Lớp ${info.lop || ''}${info.ky ? ' &nbsp;•&nbsp; ' + info.ky : ''}</div>` +
+    `<div style="font-size:13px;color:#e65100;text-align:center;font-weight:600">Chưa nhận xét: ${chuaNx}/${students.length} học sinh</div>`;
 
   document.getElementById('student-list').innerHTML = students.map(s => {
     const xlLabel = s.xlValue === 'T' ? '✓ Tốt' : s.xlValue === 'H' ? '△ Hoàn thành' : s.xlValue || '?';
@@ -121,9 +175,9 @@ function renderStudentList() {
         <div class="student-name">${s.hoTen}</div>
         <div class="student-meta">
           <span style="color:${scoreColor}; font-weight:600">${s.ktScore ?? '?'}</span>
-          <span class="xl-badge">${xlLabel}</span>
-          ${s.hasComment ? '<span class="badge-existing">Đã có NX</span>' : ''}
-          ${hasGen ? '<span class="badge-done">✓ Đã sinh</span>' : ''}
+          <span class="badge badge-xl">${xlLabel}</span>
+          ${s.hasComment ? '<span class="badge badge-has">Đã có NX</span>' : ''}
+          ${hasGen ? '<span class="badge badge-ok">✓ Đã sinh</span>' : ''}
         </div>
         ${hasGen ? `<div class="preview-text">${generated[s.hocSinhId]}</div>` : ''}
       </div>`;
@@ -167,6 +221,8 @@ document.getElementById('btn-generate-all').addEventListener('click', async () =
   const progress = document.getElementById('progress');
   btn.disabled = true;
   progress.style.display = 'block';
+  progress.textContent = '⏳ Đang sinh nhận xét...';
+  document.getElementById('preview-sample').style.display = 'none';
 
   await chrome.storage.local.remove('batchStatus');
   chrome.runtime.sendMessage({ type: 'GEMINI_GENERATE_BATCH', targets, monHoc: subjectInfo.monHoc || 'môn học', lop: subjectInfo.lop });
@@ -175,16 +231,23 @@ document.getElementById('btn-generate-all').addEventListener('click', async () =
     const { batchStatus } = await chrome.storage.local.get('batchStatus');
     if (!batchStatus) return;
     if (batchStatus.running) {
-      progress.textContent = `⏳ Đang sinh ${batchStatus.done + 1}/${batchStatus.total}: ${batchStatus.current || ''}...`;
+      progress.textContent = `⏳ Đang sinh ${batchStatus.done + 1}/${batchStatus.total}...`;
     } else {
       clearInterval(pollInterval);
       Object.assign(generated, batchStatus.generated);
-      progress.textContent = `✅ Hoàn thành: ${batchStatus.done} nhận xét${batchStatus.errors > 0 ? `, ${batchStatus.errors} lỗi` : ''}`;
-      renderStudentList();
+      const sample = Object.values(batchStatus.generated || {})[0];
+      if (sample) {
+        const box = document.getElementById('preview-sample');
+        const textEl = document.getElementById('preview-sample-text');
+        if (textEl) textEl.textContent = sample;
+        box.style.display = 'block';
+      }
+      progress.style.display = 'none';
       document.getElementById('btn-fill-all').disabled = false;
       btn.disabled = false;
+      showToast(`✅ Đã sinh ${batchStatus.done} nhận xét`);
     }
-  }, 1000);
+  }, 800);
 });
 
 // ── Điền nhận xét ─────────────────────────────────────
@@ -262,5 +325,114 @@ function renderThongKe(tk, total) {
 // ── Reload button ─────────────────────────────────────
 document.getElementById('btn-reload').addEventListener('click', () => autoRead());
 
+// ── NLPC ───────────────────────────────────────────
+let nlpcStudents = [];
+let nlpcGenerated = {}; // { hocSinhId: { nl_chung: '...', tu_chu: '...' } }
+
+const FIELD_NAME_MAP = {
+  nl_chung: '3_1', tu_chu: '1_4', giao_tiep: '1_5', gqvd: '1_6',
+  ngon_ngu: '1_7', tinh_toan: '1_8', khoa_hoc: '1_9', tham_mi: '1_12',
+  the_chat: '1_13', nl_dac_thu: '3_3', pc_chung: '3_2',
+  yeu_nuoc: '2_6', nhan_ai: '2_7', cham_chi: '2_8',
+  trung_thuc: '2_9', trach_nhiem: '2_10'
+};
+
+function getCheckedFields() {
+  return [...document.querySelectorAll('.nlpc-chk:checked')].map(c => c.value);
+}
+
+async function readNlpc(tabId) {
+  const res = await sendToTab(tabId, { type: 'READ_NLPC_STUDENTS' });
+  nlpcStudents = res.students || [];
+  nlpcGenerated = {};
+  const info = document.getElementById('nlpc-info');
+  info.textContent = nlpcStudents.length ? `${nlpcStudents.length} học sinh` : 'Chưa có dữ liệu';
+  document.getElementById('btn-nlpc-single').disabled = true;
+  document.getElementById('btn-nlpc-batch').disabled = nlpcStudents.length === 0;
+  renderNlpcList();
+}
+
+function renderNlpcList() {
+  const list = document.getElementById('nlpc-student-list');
+  if (!nlpcStudents.length) {
+    list.innerHTML = '<div class="empty-state">Chưa có danh sách học sinh</div>';
+    return;
+  }
+  list.innerHTML = nlpcStudents.map(s => {
+    const hasGen = nlpcGenerated[s.index];
+    return `<div class="student-row ${hasGen ? 'done' : ''}" data-index="${s.index}" style="cursor:pointer">
+      <div class="student-name">${s.hoTen}</div>
+      ${hasGen ? '<div style="font-size:10px;color:#2e7d32">✓ Đã sinh</div>' : ''}
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.student-row').forEach(row => {
+    row.addEventListener('click', () => {
+      list.querySelectorAll('.student-row').forEach(r => r.style.background = '');
+      row.style.background = '#e8f0fe';
+      document.getElementById('btn-nlpc-single').disabled = false;
+      document.getElementById('btn-nlpc-single').dataset.index = row.dataset.index;
+    });
+  });
+}
+
+async function nlpcGenerate(indices) {
+  const fields = getCheckedFields();
+  if (!fields.length) return showToast('⚠️ Chưa chọn ô nào');
+  const tab = await getActiveTab();
+  const progress = document.getElementById('nlpc-progress');
+  progress.style.display = 'block';
+  document.getElementById('btn-nlpc-single').disabled = true;
+  document.getElementById('btn-nlpc-batch').disabled = true;
+
+  for (let i = 0; i < indices.length; i++) {
+    const index = indices[i];
+    const s = nlpcStudents.find(x => x.index === index);
+    progress.textContent = `⏳ Đang sinh ${i + 1}/${indices.length}: ${s?.hoTen || ''}...`;
+
+    const { xepLoaiMap } = await sendToTab(tab.id, { type: 'NLPC_CLICK_STUDENT', index });
+
+    const res = await chrome.runtime.sendMessage({ type: 'NLPC_GENERATE', fields, xepLoaiMap: xepLoaiMap || {} });
+    nlpcGenerated[index] = res.result;
+
+    await sendToTab(tab.id, { type: 'NLPC_FILL_ONE', hocSinhId: s.hocSinhId, data: res.result });
+  }
+
+  progress.textContent = `✅ Hoàn thành ${indices.length} học sinh`;
+  document.getElementById('btn-nlpc-batch').disabled = false;
+  renderNlpcList();
+}
+
+document.getElementById('btn-nlpc-single').addEventListener('click', async () => {
+  const index = parseInt(document.getElementById('btn-nlpc-single').dataset.index);
+  if (isNaN(index)) return;
+  await nlpcGenerate([index]);
+});
+
+document.getElementById('btn-nlpc-batch').addEventListener('click', async () => {
+  if (!nlpcStudents.length) return;
+  await nlpcGenerate(nlpcStudents.map(s => s.index));
+});
+
 // ── Khởi động ─────────────────────────────────────────
 autoRead();
+
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === 'PAGE_CHANGED') autoRead();
+});
+
+// ── License ───────────────────────────────────────────
+document.getElementById('btn-activate').addEventListener('click', async () => {
+  const key = document.getElementById('license-input').value.trim();
+  const msg = document.getElementById('license-msg');
+  if (!key) { msg.style.color = '#e65100'; msg.textContent = 'Vui lòng nhập key'; return; }
+  msg.style.color = '#666'; msg.textContent = 'Đang kiểm tra...';
+  const ok = await activateLicense(key);
+  if (ok.valid) {
+    const exp = ok.expDate.toLocaleDateString('vi-VN');
+    msg.style.color = '#2e7d32'; msg.textContent = `✅ Kích hoạt thành công! Hết hạn: ${exp}`;
+    setTimeout(() => autoRead(), 1000);
+  } else {
+    msg.style.color = '#c62828'; msg.textContent = `❌ ${ok.reason}`;
+  }
+});
